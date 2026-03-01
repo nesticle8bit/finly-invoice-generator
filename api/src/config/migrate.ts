@@ -89,7 +89,18 @@ CREATE TABLE IF NOT EXISTS invoice_share_tokens (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Invitation codes (single-use, required for registration by non-first users)
+CREATE TABLE IF NOT EXISTS invitation_codes (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(20) UNIQUE NOT NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Indexes
+CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invitation_codes(code);
 CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id);
 CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON invoice_items(invoice_id);

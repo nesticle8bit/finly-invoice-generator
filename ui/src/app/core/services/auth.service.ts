@@ -21,8 +21,8 @@ export class AuthService {
     );
   }
 
-  register(name: string, email: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/register`, { name, email, password }).pipe(
+  register(name: string, email: string, password: string, invite_code?: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/register`, { name, email, password, invite_code }).pipe(
       tap((res) => this.storeSession(res))
     );
   }

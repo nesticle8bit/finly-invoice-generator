@@ -109,6 +109,17 @@ import { ToastService } from '../../../core/services/toast.service';
                   class="w-full px-4 py-3 bg-dark-900/60 border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 >
               </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Invitation Code</label>
+                <input
+                  type="text"
+                  formControlName="invite_code"
+                  placeholder="XXXX-XXXX"
+                  autocomplete="off"
+                  class="w-full px-4 py-3 bg-dark-900/60 border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                >
+                <p class="text-slate-600 text-xs mt-1.5">Not required for the first account.</p>
+              </div>
               <button
                 type="submit"
                 [disabled]="registerForm.invalid || loading()"
@@ -144,6 +155,7 @@ export class LoginComponent {
     name: ['', [Validators.required, Validators.minLength(2)]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
+    invite_code: [''],
   });
 
   onLogin(): void {
@@ -166,9 +178,9 @@ export class LoginComponent {
   onRegister(): void {
     if (this.registerForm.invalid || this.loading()) return;
     this.loading.set(true);
-    const { name, email, password } = this.registerForm.value;
+    const { name, email, password, invite_code } = this.registerForm.value;
 
-    this.auth.register(name!, email!, password!).subscribe({
+    this.auth.register(name!, email!, password!, invite_code || undefined).subscribe({
       next: () => {
         this.toast.success('Account created! Welcome!');
         this.router.navigate(['/dashboard']);

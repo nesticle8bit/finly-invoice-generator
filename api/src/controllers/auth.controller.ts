@@ -5,7 +5,7 @@ import { query } from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
 
 export async function register(req: Request, res: Response): Promise<void> {
-  const { name, email, password } = req.body;
+  const { name, email, password, invite_code } = req.body;
 
   if (!name || !email || !password) {
     res.status(400).json({ error: 'Name, email and password are required' });
@@ -13,6 +13,25 @@ export async function register(req: Request, res: Response): Promise<void> {
   }
 
   try {
+    // First user ever doesn't need an invite code (becomes the admin)
+    const countResult = await query('SELECT COUNT(*) FROM users');
+    const isFirstUser = parseInt(countResult.rows[0].count) === 0;
+
+    if (!isFirstUser) {
+      if (!invite_code) {
+        res.status(400).json({ error: 'An invitation code is required' });
+        return;
+      }
+      const codeResult = await query(
+        'SELECT id FROM invitation_codes WHERE code = $1 AND used_by IS NULL',
+        [invite_code.trim().toUpperCase()]
+      );
+      if (codeResult.rows.length === 0) {
+        res.status(400).json({ error: 'Invalid or already used invitation code' });
+        return;
+      }
+    }
+
     const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
       res.status(409).json({ error: 'Email already registered' });
@@ -29,6 +48,14 @@ export async function register(req: Request, res: Response): Promise<void> {
 
     // Create empty profile
     await query('INSERT INTO profiles (user_id) VALUES ($1)', [user.id]);
+
+    // Mark invite code as used
+    if (!isFirstUser && invite_code) {
+      await query(
+        'UPDATE invitation_codes SET used_by = $1, used_at = NOW() WHERE code = $2',
+        [user.id, invite_code.trim().toUpperCase()]
+      );
+    }
 
     const token = jwt.sign(
       { userId: user.id, email: user.email },

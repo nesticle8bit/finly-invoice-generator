@@ -9,6 +9,7 @@ import invoicesRoutes from './routes/invoices.routes';
 import clientsRoutes from './routes/clients.routes';
 import profileRoutes from './routes/profile.routes';
 import shareRoutes from './routes/share.routes';
+import inviteRoutes from './routes/invite.routes';
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use('/api/invoices', invoicesRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api', shareRoutes);
+app.use('/api/invite-codes', inviteRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
