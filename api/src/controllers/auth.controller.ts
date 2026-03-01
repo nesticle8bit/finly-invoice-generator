@@ -1,0 +1,100 @@
+import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { query } from '../config/database';
+import { AuthRequest } from '../middleware/auth.middleware';
+
+export async function register(req: Request, res: Response): Promise<void> {
+  const { name, email, password } = req.body;
+
+  if (!name || !email || !password) {
+    res.status(400).json({ error: 'Name, email and password are required' });
+    return;
+  }
+
+  try {
+    const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      res.status(409).json({ error: 'Email already registered' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const result = await query(
+      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, created_at',
+      [name, email, passwordHash]
+    );
+
+    const user = result.rows[0];
+
+    // Create empty profile
+    await query('INSERT INTO profiles (user_id) VALUES ($1)', [user.id]);
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    res.status(201).json({ token, user });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function login(req: Request, res: Response): Promise<void> {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    res.status(400).json({ error: 'Email and password are required' });
+    return;
+  }
+
+  try {
+    const result = await query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    const user = result.rows[0];
+    const valid = await bcrypt.compare(password, user.password_hash);
+
+    if (!valid) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    res.json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email },
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function me(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const result = await query(
+      'SELECT id, name, email, created_at FROM users WHERE id = $1',
+      [req.userId]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Me error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}

@@ -1,0 +1,54 @@
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-invoice_generator}
+      POSTGRES_USER:     ${DB_USER:-nesticle8bit}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-nesticle8bit} -d ${DB_NAME:-invoice_generator}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API (Express + Puppeteer) ──────────────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV:    production
+      PORT:        3000
+      DB_HOST:     db
+      DB_PORT:     5432
+      DB_NAME:     ${DB_NAME:-invoice_generator}
+      DB_USER:     ${DB_USER:-nesticle8bit}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET:  ${JWT_SECRET}
+      UPLOAD_DIR:  uploads
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── UI (Angular → nginx) ───────────────────────────────────────
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  uploads:

@@ -1,0 +1,32 @@
+# ── Dependencies ───────────────────────────────────────────────
+node_modules/
+api/node_modules/
+ui/node_modules/
+
+# ── Build outputs ──────────────────────────────────────────────
+api/dist/
+ui/dist/
+
+# ── Angular cache ──────────────────────────────────────────────
+ui/.angular/
+
+# ── Environment / secrets ──────────────────────────────────────
+.env
+api/.env
+
+# ── Uploads (user files — logos, signatures) ───────────────────
+api/uploads/
+
+# ── Logs ───────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+
+# ── OS ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDEs ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user
