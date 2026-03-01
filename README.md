@@ -1,5 +1,7 @@
 # Finly — Invoice Generator
 
+<img width="1920" height="896" alt="image" src="https://github.com/user-attachments/assets/36b62e7a-15f8-409b-bdaf-54ab097aa951" />
+
 A full-stack invoice management system built with Angular 18 and Express.js. Track daily tasks, generate professional invoices, export them as PDFs, and share them with collaborators for Work Package entry — all without requiring them to create an account.
 
 ---
