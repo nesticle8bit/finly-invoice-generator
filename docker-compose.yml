@@ -52,3 +52,10 @@ services:
 volumes:
   postgres_data:
   uploads:
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
