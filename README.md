@@ -1,8 +1,8 @@
-# Finly — Invoice Generator
+# Finly - Invoice Generator
 
 <img width="1920" height="896" alt="image" src="https://github.com/user-attachments/assets/36b62e7a-15f8-409b-bdaf-54ab097aa951" />
 
-A full-stack invoice management system built with Angular 18 and Express.js. Track daily tasks, generate professional invoices, export them as PDFs, and share them with collaborators for Work Package entry — all without requiring them to create an account.
+A full-stack invoice management system built with Angular 18 and Express.js. Track daily tasks, generate professional invoices, export them as PDFs, and share them with collaborators for Work Package entry - all without requiring them to create an account.
 
 ---
 
@@ -158,7 +158,7 @@ Internet → :80 (nginx)
              └── /uploads/* → proxy → api:3000
 ```
 
-nginx acts as a reverse proxy, so both the app and the API are served on the same origin — no CORS issues.
+nginx acts as a reverse proxy, so both the app and the API are served on the same origin - no CORS issues.
 
 ### Setup
 
@@ -309,7 +309,7 @@ invoices ──< invoice_share_tokens  (1:1)
 ### Share for WP Entry
 - Generate a password-protected link for any draft invoice
 - Collaborators open the link, enter the password, and fill in Work Package numbers per task
-- Only the WP field is editable — all other data is read-only
+- Only the WP field is editable - all other data is read-only
 - Optional expiry date on the link
 - Link can be revoked at any time by the owner
 
@@ -340,12 +340,12 @@ invoices ──< invoice_share_tokens  (1:1)
 |----------|-------------|---------|
 | `PORT` | API server port | `3000` |
 | `NODE_ENV` | Environment | `development` |
-| `DB_HOST` | PostgreSQL host | — |
+| `DB_HOST` | PostgreSQL host | - |
 | `DB_PORT` | PostgreSQL port | `5432` |
 | `DB_NAME` | Database name | `invoice_generator` |
-| `DB_USER` | PostgreSQL user | — |
-| `DB_PASSWORD` | PostgreSQL password | — |
-| `JWT_SECRET` | Secret for signing tokens | — |
+| `DB_USER` | PostgreSQL user | - |
+| `DB_PASSWORD` | PostgreSQL password | - |
+| `JWT_SECRET` | Secret for signing tokens | - |
 | `UPLOAD_DIR` | Upload directory | `uploads` |
 
 ---
