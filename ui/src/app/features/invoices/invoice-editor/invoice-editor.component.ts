@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DecimalPipe, NgClass } from '@angular/common';
@@ -168,6 +168,14 @@ import { Client, Profile } from '../../../core/models';
 
         <!-- Actions -->
         <div class="flex items-center justify-end gap-3">
+          @if (autosaved()) {
+            <span class="text-xs text-slate-400 flex items-center gap-1.5 mr-auto">
+              <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+              </svg>
+              Autosaved
+            </span>
+          }
           <a routerLink="/invoices" class="btn-secondary">Cancel</a>
           <button
             type="submit"
@@ -181,7 +189,7 @@ import { Client, Profile } from '../../../core/models';
     </div>
   `,
 })
-export class InvoiceEditorComponent implements OnInit {
+export class InvoiceEditorComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -194,7 +202,10 @@ export class InvoiceEditorComponent implements OnInit {
   profile = signal<Profile | null>(null);
   isEdit = signal(false);
   saving = signal(false);
+  autosaved = signal(false);
   invoiceId: number | null = null;
+  private autosaveTimer: ReturnType<typeof setInterval> | null = null;
+  private autosaveHideTimer: ReturnType<typeof setTimeout> | null = null;
 
   form: FormGroup = this.fb.group({
     invoice_number: ['', Validators.required],
@@ -257,12 +268,51 @@ export class InvoiceEditorComponent implements OnInit {
         inv.items.forEach((item) => {
           this.itemsArray.push(this.createItemGroup(item.description, item.hours, item.rate));
         });
+        // Mark pristine so initial load doesn't trigger autosave
+        this.form.markAsPristine();
+        this.startAutosave();
       },
       error: () => {
         this.toast.error('Invoice not found');
         this.router.navigate(['/invoices']);
       },
     });
+  }
+
+  private startAutosave(): void {
+    this.autosaveTimer = setInterval(() => {
+      if (this.form.dirty && !this.saving() && this.invoiceId) {
+        this.performAutosave();
+      }
+    }, 30_000);
+  }
+
+  private performAutosave(): void {
+    const value = this.form.getRawValue();
+    const payload = {
+      ...value,
+      client_id: value.client_id || null,
+      items: (value.items ?? []).map((item: any) => ({
+        description: item.description ?? '',
+        hours: item.hours ?? 0,
+        rate: item.rate ?? 0,
+        amount: (item.hours ?? 0) * (item.rate ?? 0),
+      })),
+    };
+
+    this.invoiceService.update(this.invoiceId!, payload).subscribe({
+      next: () => {
+        this.form.markAsPristine();
+        this.autosaved.set(true);
+        if (this.autosaveHideTimer) clearTimeout(this.autosaveHideTimer);
+        this.autosaveHideTimer = setTimeout(() => this.autosaved.set(false), 3000);
+      },
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.autosaveTimer) clearInterval(this.autosaveTimer);
+    if (this.autosaveHideTimer) clearTimeout(this.autosaveHideTimer);
   }
 
   createItemGroup(description = '', hours = 0, rate = 0): FormGroup {
