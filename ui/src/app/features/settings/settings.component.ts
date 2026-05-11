@@ -13,7 +13,7 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [ReactiveFormsModule, DatePipe],
   template: `
-    <div class="p-8 max-w-3xl mx-auto">
+    <div class="p-8 mx-auto">
       <div class="mb-8">
         <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
         <p class="text-slate-500 text-sm mt-0.5">Customize your profile and invoice defaults</p>

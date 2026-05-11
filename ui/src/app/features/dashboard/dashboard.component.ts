@@ -1,25 +1,24 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe, NgClass } from '@angular/common';
-import { InvoiceService } from '../../core/services/invoice.service';
-import { DashboardStats } from '../../core/models';
+import { Component, inject, OnInit, signal } from "@angular/core";
+import { RouterLink } from "@angular/router";
+import { DatePipe, DecimalPipe, NgClass } from "@angular/common";
+import { InvoiceService } from "../../core/services/invoice.service";
+import { DashboardStats } from "../../core/models";
 
 @Component({
-  selector: 'app-dashboard',
+  selector: "app-dashboard",
   standalone: true,
   imports: [RouterLink, DatePipe, DecimalPipe, NgClass],
   template: `
-    <div class="p-8 max-w-7xl mx-auto">
-
+    <div class="p-8 mx-auto">
       <!-- Header -->
       <div class="flex items-center justify-between mb-8">
         <div>
           <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p class="text-slate-500 text-sm mt-0.5">{{ today | date:'EEEE, MMMM d, y' }}</p>
+          <p class="text-slate-500 text-sm mt-0.5">{{ today | date: "EEEE, MMMM d, y" }}</p>
         </div>
         <a routerLink="/invoices/new" class="btn-primary">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
           New Invoice
         </a>
@@ -30,21 +29,19 @@ import { DashboardStats } from '../../core/models';
           <div class="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       } @else if (stats()) {
-
         <!-- Revenue Row -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-
           <!-- Total Revenue -->
           <div class="card p-6 border-l-4 border-l-primary-500">
             <div class="flex items-center justify-between mb-4">
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Revenue</p>
               <div class="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center">
                 <svg class="w-4.5 h-4.5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
-            <p class="text-3xl font-bold text-slate-900">€{{ stats()!.total_revenue | number:'1.0-2' }}</p>
+            <p class="text-3xl font-bold text-slate-900">€{{ stats()!.total_revenue | number: "1.0-2" }}</p>
             <p class="text-xs text-slate-500 mt-1">Across all {{ stats()!.total_invoices }} invoices</p>
           </div>
 
@@ -54,16 +51,14 @@ import { DashboardStats } from '../../core/models';
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">This Month</p>
               <div class="w-9 h-9 rounded-xl bg-accent-500/10 flex items-center justify-center">
                 <svg class="w-4.5 h-4.5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
             </div>
-            <p class="text-3xl font-bold text-slate-900">€{{ stats()!.month_revenue | number:'1.0-2' }}</p>
+            <p class="text-3xl font-bold text-slate-900">€{{ stats()!.month_revenue | number: "1.0-2" }}</p>
             <div class="flex items-center gap-1.5 mt-1">
               @if (monthDelta() !== null) {
-                <span [ngClass]="monthDelta()! >= 0 ? 'text-emerald-600' : 'text-red-500'" class="text-xs font-semibold">
-                  {{ monthDelta()! >= 0 ? '▲' : '▼' }} {{ monthDelta()! | number:'1.0-0' }}%
-                </span>
+                <span [ngClass]="monthDelta()! >= 0 ? 'text-emerald-600' : 'text-red-500'" class="text-xs font-semibold"> {{ monthDelta()! >= 0 ? "▲" : "▼" }} {{ monthDelta()! | number: "1.0-0" }}% </span>
                 <span class="text-xs text-slate-400">vs last month</span>
               } @else {
                 <span class="text-xs text-slate-400">No data last month</span>
@@ -77,11 +72,11 @@ import { DashboardStats } from '../../core/models';
               <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending Payment</p>
               <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
                 <svg class="w-4.5 h-4.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
-            <p class="text-3xl font-bold text-slate-900">€{{ stats()!.pending_revenue | number:'1.0-2' }}</p>
+            <p class="text-3xl font-bold text-slate-900">€{{ stats()!.pending_revenue | number: "1.0-2" }}</p>
             <p class="text-xs text-slate-500 mt-1">{{ stats()!.sent_invoices }} sent invoice(s) awaiting payment</p>
           </div>
         </div>
@@ -96,7 +91,7 @@ import { DashboardStats } from '../../core/models';
           <div class="card p-5">
             <p class="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-2">Paid</p>
             <p class="text-2xl font-bold text-emerald-600">{{ stats()!.paid_invoices }}</p>
-            <p class="text-xs text-slate-400 mt-0.5">€{{ stats()!.paid_revenue | number:'1.0-0' }} collected</p>
+            <p class="text-xs text-slate-400 mt-0.5">€{{ stats()!.paid_revenue | number: "1.0-0" }} collected</p>
           </div>
           <div class="card p-5">
             <p class="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-2">Sent</p>
@@ -105,7 +100,7 @@ import { DashboardStats } from '../../core/models';
           </div>
           <div class="card p-5">
             <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Avg Invoice</p>
-            <p class="text-2xl font-bold text-slate-900">€{{ stats()!.avg_invoice | number:'1.0-0' }}</p>
+            <p class="text-2xl font-bold text-slate-900">€{{ stats()!.avg_invoice | number: "1.0-0" }}</p>
             <p class="text-xs text-slate-400 mt-0.5">Average value</p>
           </div>
         </div>
@@ -119,22 +114,13 @@ import { DashboardStats } from '../../core/models';
             </div>
             <div class="flex rounded-full overflow-hidden h-3 bg-slate-100 gap-px">
               @if (+stats()!.paid_invoices > 0) {
-                <div
-                  class="bg-emerald-500 transition-all duration-500"
-                  [style.width.%]="(+stats()!.paid_invoices / +stats()!.total_invoices) * 100"
-                ></div>
+                <div class="bg-emerald-500 transition-all duration-500" [style.width.%]="(+stats()!.paid_invoices / +stats()!.total_invoices) * 100"></div>
               }
               @if (+stats()!.sent_invoices > 0) {
-                <div
-                  class="bg-amber-400 transition-all duration-500"
-                  [style.width.%]="(+stats()!.sent_invoices / +stats()!.total_invoices) * 100"
-                ></div>
+                <div class="bg-amber-400 transition-all duration-500" [style.width.%]="(+stats()!.sent_invoices / +stats()!.total_invoices) * 100"></div>
               }
               @if (+stats()!.draft_invoices > 0) {
-                <div
-                  class="bg-slate-300 transition-all duration-500"
-                  [style.width.%]="(+stats()!.draft_invoices / +stats()!.total_invoices) * 100"
-                ></div>
+                <div class="bg-slate-300 transition-all duration-500" [style.width.%]="(+stats()!.draft_invoices / +stats()!.total_invoices) * 100"></div>
               }
             </div>
             <div class="flex items-center gap-5 mt-3">
@@ -151,9 +137,7 @@ import { DashboardStats } from '../../core/models';
                 <span class="text-xs text-slate-500">Draft ({{ stats()!.draft_invoices }})</span>
               </div>
               <div class="ml-auto">
-                <span class="text-xs font-semibold text-emerald-600">
-                  {{ (+stats()!.total_invoices > 0 ? (+stats()!.paid_invoices / +stats()!.total_invoices) * 100 : 0) | number:'1.0-0' }}% collection rate
-                </span>
+                <span class="text-xs font-semibold text-emerald-600"> {{ (+stats()!.total_invoices > 0 ? (+stats()!.paid_invoices / +stats()!.total_invoices) * 100 : 0) | number: "1.0-0" }}% collection rate </span>
               </div>
             </div>
           </div>
@@ -161,7 +145,6 @@ import { DashboardStats } from '../../core/models';
 
         <!-- Bottom: Recent + Quick Actions -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
           <!-- Recent Invoices -->
           <div class="lg:col-span-2 card overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
@@ -170,33 +153,33 @@ import { DashboardStats } from '../../core/models';
             </div>
             <div class="divide-y divide-slate-50">
               @for (inv of stats()!.recent_invoices; track inv.id) {
-                <a
-                  [routerLink]="['/invoices', inv.id, 'preview']"
-                  class="flex items-center justify-between px-6 py-3.5 hover:bg-slate-50 transition-colors group"
-                >
+                <a [routerLink]="['/invoices', inv.id, 'preview']" class="flex items-center justify-between px-6 py-3.5 hover:bg-slate-50 transition-colors group">
                   <div class="flex items-center gap-3 min-w-0">
                     <div class="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center flex-shrink-0">
                       <span class="text-primary-600 text-xs font-bold">#</span>
                     </div>
                     <div class="min-w-0">
                       <p class="text-sm font-semibold text-slate-900 group-hover:text-primary-600 transition-colors">{{ inv.invoice_number }}</p>
-                      <p class="text-xs text-slate-500 truncate">{{ inv.client_name || 'No client' }}</p>
+                      <p class="text-xs text-slate-500 truncate">{{ inv.client_name || "No client" }}</p>
                     </div>
                   </div>
                   <div class="flex items-center gap-4 flex-shrink-0">
-                    <p class="text-xs text-slate-400 hidden sm:block">{{ inv.date | date:'MMM d, y' }}</p>
-                    <span [ngClass]="{
-                      'badge-paid': inv.status === 'paid',
-                      'badge-sent': inv.status === 'sent',
-                      'badge-draft': inv.status === 'draft'
-                    }">{{ inv.status }}</span>
-                    <p class="text-sm font-bold text-slate-900 min-w-[72px] text-right">€{{ inv.total | number:'1.0-2' }}</p>
+                    <p class="text-xs text-slate-400 hidden sm:block">{{ inv.date | date: "MMM d, y" }}</p>
+                    <span
+                      [ngClass]="{
+                        'badge-paid': inv.status === 'paid',
+                        'badge-sent': inv.status === 'sent',
+                        'badge-draft': inv.status === 'draft',
+                      }"
+                      >{{ inv.status }}</span
+                    >
+                    <p class="text-sm font-bold text-slate-900 min-w-[72px] text-right">€{{ inv.total | number: "1.0-2" }}</p>
                   </div>
                 </a>
               } @empty {
                 <div class="text-center py-12 text-slate-400">
                   <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <p class="text-sm font-medium">No invoices yet</p>
                   <a routerLink="/invoices/new" class="text-primary-600 text-sm font-semibold hover:underline mt-1 inline-block">Create your first →</a>
@@ -213,7 +196,7 @@ import { DashboardStats } from '../../core/models';
                 <a routerLink="/invoices/new" class="flex items-center gap-3 p-3 rounded-xl hover:bg-primary-50 group transition-colors">
                   <div class="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
                     <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
                   </div>
                   <div>
@@ -224,7 +207,7 @@ import { DashboardStats } from '../../core/models';
                 <a routerLink="/clients" class="flex items-center gap-3 p-3 rounded-xl hover:bg-accent-50 group transition-colors">
                   <div class="w-8 h-8 rounded-lg bg-accent-500/10 flex items-center justify-center flex-shrink-0">
                     <svg class="w-4 h-4 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
                   <div>
@@ -235,7 +218,7 @@ import { DashboardStats } from '../../core/models';
                 <a routerLink="/invoices" class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 group transition-colors">
                   <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                     <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
                   <div>
@@ -246,8 +229,8 @@ import { DashboardStats } from '../../core/models';
                 <a routerLink="/settings" class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 group transition-colors">
                   <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                     <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
                   <div>
@@ -261,7 +244,7 @@ import { DashboardStats } from '../../core/models';
             <!-- Avg Invoice mini card -->
             <div class="card p-5 bg-gradient-to-br from-primary-600 to-primary-700 text-white">
               <p class="text-xs font-semibold text-primary-200 uppercase tracking-wider mb-1">Average Invoice</p>
-              <p class="text-3xl font-bold">€{{ stats()!.avg_invoice | number:'1.0-0' }}</p>
+              <p class="text-3xl font-bold">€{{ stats()!.avg_invoice | number: "1.0-0" }}</p>
               <p class="text-xs text-primary-300 mt-1">Per invoice, all time</p>
               <div class="mt-4 pt-4 border-t border-primary-500/50 flex justify-between text-xs text-primary-200">
                 <span>{{ stats()!.paid_invoices }} paid</span>
@@ -270,7 +253,6 @@ import { DashboardStats } from '../../core/models';
               </div>
             </div>
           </div>
-
         </div>
       }
     </div>
@@ -291,7 +273,10 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.invoiceService.getStats().subscribe({
-      next: (s) => { this.stats.set(s); this.loading.set(false); },
+      next: (s) => {
+        this.stats.set(s);
+        this.loading.set(false);
+      },
       error: () => this.loading.set(false),
     });
   }

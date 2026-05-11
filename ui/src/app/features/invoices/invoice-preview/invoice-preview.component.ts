@@ -1,16 +1,16 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { InvoiceService } from '../../../core/services/invoice.service';
-import { ProfileService } from '../../../core/services/profile.service';
-import { ToastService } from '../../../core/services/toast.service';
-import { ShareService, ShareInfo } from '../../../core/services/share.service';
-import { Invoice, Profile } from '../../../core/models';
-import { environment } from '../../../../environments/environment';
+import { Component, inject, OnInit, signal } from "@angular/core";
+import { ActivatedRoute, RouterLink } from "@angular/router";
+import { DatePipe, DecimalPipe } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { InvoiceService } from "../../../core/services/invoice.service";
+import { ProfileService } from "../../../core/services/profile.service";
+import { ToastService } from "../../../core/services/toast.service";
+import { ShareService, ShareInfo } from "../../../core/services/share.service";
+import { Invoice, Profile } from "../../../core/models";
+import { environment } from "../../../../environments/environment";
 
 @Component({
-  selector: 'app-invoice-preview',
+  selector: "app-invoice-preview",
   standalone: true,
   imports: [RouterLink, DatePipe, DecimalPipe, FormsModule],
   template: `
@@ -20,7 +20,7 @@ import { environment } from '../../../../environments/environment';
         <div class="flex items-center gap-3">
           <a [routerLink]="['/invoices']" class="text-slate-400 hover:text-white transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
           </a>
           <div>
@@ -29,25 +29,25 @@ import { environment } from '../../../../environments/environment';
           </div>
         </div>
         <div class="flex items-center gap-2">
-          @if (invoice()?.status === 'draft') {
+          @if (invoice()?.status === "draft") {
             <button (click)="openShareModal()" class="btn-secondary text-sm py-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
               </svg>
               Share for WP
             </button>
           }
           <a [routerLink]="['/invoices', invoiceId, 'edit']" class="btn-secondary text-sm py-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
             Edit
           </a>
           <button (click)="downloadPDF()" [disabled]="downloading()" class="btn-primary text-sm py-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            {{ downloading() ? 'Generating...' : 'Download PDF' }}
+            {{ downloading() ? "Generating..." : "Download PDF" }}
           </button>
         </div>
       </div>
@@ -62,12 +62,11 @@ import { environment } from '../../../../environments/environment';
           <!-- A4 Paper -->
           <div class="invoice-preview bg-white shadow-2xl w-[794px] min-h-[1123px] rounded-sm" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#1f2937;">
             <div style="padding:48px 52px;">
-
               <!-- Header -->
               <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:40px;">
                 <div>
                   @if (profile()?.logo_path) {
-                    <img [src]="getLogoUrl()" alt="Logo" style="height:64px; width:auto; object-fit:contain;">
+                    <img [src]="getLogoUrl()" alt="Logo" style="height:64px; width:auto; object-fit:contain;" />
                   } @else {
                     <div style="font-size:52px; font-weight:900; color:#06b6d4; letter-spacing:-2px; line-height:1;">
                       {{ getUserInitials() }}
@@ -76,9 +75,15 @@ import { environment } from '../../../../environments/environment';
                 </div>
                 <div style="text-align:right; font-size:12px; color:#374151; line-height:1.7;">
                   <div style="font-size:14px; font-weight:700; color:#111827;">{{ profile()?.name }}</div>
-                  @if (profile()?.vat) { <div>VAT: {{ profile()?.vat }}</div> }
-                  @if (profile()?.email) { <div>{{ profile()?.email }}</div> }
-                  @if (profile()?.phone) { <div>{{ profile()?.phone }}</div> }
+                  @if (profile()?.vat) {
+                    <div>VAT: {{ profile()?.vat }}</div>
+                  }
+                  @if (profile()?.email) {
+                    <div>{{ profile()?.email }}</div>
+                  }
+                  @if (profile()?.phone) {
+                    <div>{{ profile()?.phone }}</div>
+                  }
                 </div>
               </div>
 
@@ -89,11 +94,13 @@ import { environment } from '../../../../environments/environment';
                   <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:4px;">{{ invoice()?.client_name }}</div>
                   @if (invoice()?.client_address) {
                     <div style="font-size:13px; color:#374151; line-height:1.7;">
-                      {{ invoice()?.client_address }}<br>
+                      {{ invoice()?.client_address }}<br />
                       @if (invoice()?.client_postal_code || invoice()?.client_city) {
-                        {{ invoice()?.client_postal_code }} {{ invoice()?.client_city }}<br>
+                        {{ invoice()?.client_postal_code }} {{ invoice()?.client_city }}<br />
                       }
-                      @if (invoice()?.client_vat) { VAT: {{ invoice()?.client_vat }} }
+                      @if (invoice()?.client_vat) {
+                        VAT: {{ invoice()?.client_vat }}
+                      }
                     </div>
                   }
                 </div>
@@ -105,7 +112,7 @@ import { environment } from '../../../../environments/environment';
                   </div>
                   <div>
                     <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">Date</div>
-                    <div style="font-size:13px; font-weight:700; color:#111827;">{{ invoice()?.date | date:'MMMM dd, yyyy' }}</div>
+                    <div style="font-size:13px; font-weight:700; color:#111827;">{{ invoice()?.date | date: "MMMM dd, yyyy" }}</div>
                   </div>
                 </div>
               </div>
@@ -126,7 +133,7 @@ import { environment } from '../../../../environments/environment';
                       <td style="padding:10px 16px; font-size:12px; color:#374151; border-bottom:1px solid #f3f4f6;">{{ item.description }}</td>
                       <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:center; border-bottom:1px solid #f3f4f6;">{{ item.hours }}</td>
                       <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:center; white-space:nowrap; border-bottom:1px solid #f3f4f6;">{{ item.rate }} €</td>
-                      <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:right; border-bottom:1px solid #f3f4f6;">{{ item.amount | number:'1.0-2' }} €</td>
+                      <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:right; border-bottom:1px solid #f3f4f6;">{{ item.amount | number: "1.0-2" }} €</td>
                     </tr>
                   }
                 </tbody>
@@ -136,7 +143,7 @@ import { environment } from '../../../../environments/environment';
               <div style="display:flex; justify-content:flex-end; margin-bottom:40px;">
                 <div style="display:flex; align-items:center; gap:24px;">
                   <span style="font-size:11px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase;">Total</span>
-                  <span style="font-size:28px; font-weight:900; color:#6366f1;">{{ invoice()?.total | number:'1.0-2' }} €</span>
+                  <span style="font-size:28px; font-weight:900; color:#6366f1;">{{ invoice()?.total | number: "1.0-2" }} €</span>
                 </div>
               </div>
 
@@ -172,7 +179,7 @@ import { environment } from '../../../../environments/environment';
               <!-- Signature -->
               @if (profile()?.signature_path) {
                 <div>
-                  <img [src]="getSignatureUrl()" alt="Signature" style="height:60px; width:auto;">
+                  <img [src]="getSignatureUrl()" alt="Signature" style="height:60px; width:auto;" />
                 </div>
               }
             </div>
@@ -181,7 +188,7 @@ import { environment } from '../../../../environments/environment';
       </div>
     </div>
 
-    <!-- ===================== Share Modal ===================== -->
+    <!-- === Share Modal === -->
     @if (showShareModal()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <!-- Backdrop -->
@@ -197,13 +204,12 @@ import { environment } from '../../../../environments/environment';
             </div>
             <button (click)="closeShareModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
           <div class="px-6 py-5 space-y-5">
-
             <!-- Current link status -->
             @if (shareInfo()?.active) {
               <!-- Link is active -->
@@ -212,26 +218,22 @@ import { environment } from '../../../../environments/environment';
                   <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
                   <span class="text-sm font-semibold text-emerald-700">Active share link</span>
                   @if (shareInfo()?.expires_at) {
-                    <span class="ml-auto text-xs text-emerald-600">Expires {{ shareInfo()?.expires_at | date:'MMM d, y' }}</span>
+                    <span class="ml-auto text-xs text-emerald-600">Expires {{ shareInfo()?.expires_at | date: "MMM d, y" }}</span>
                   }
                 </div>
                 <div class="flex items-center gap-2">
-                  <input
-                    [value]="shareUrl()"
-                    readonly
-                    class="flex-1 text-xs bg-white border border-emerald-200 rounded-lg px-3 py-2 text-slate-700 font-mono"
-                  />
+                  <input [value]="shareUrl()" readonly class="flex-1 text-xs bg-white border border-emerald-200 rounded-lg px-3 py-2 text-slate-700 font-mono" />
                   <button (click)="copyLink()" class="btn-secondary text-xs py-2 px-3 flex-shrink-0">
                     @if (copied()) {
                       <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                       </svg>
                     } @else {
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
                     }
-                    {{ copied() ? 'Copied!' : 'Copy' }}
+                    {{ copied() ? "Copied!" : "Copy" }}
                   </button>
                 </div>
               </div>
@@ -239,23 +241,16 @@ import { environment } from '../../../../environments/environment';
               <!-- Revoke button -->
               <button (click)="revokeLink()" [disabled]="shareLoading()" class="btn-danger w-full justify-center text-sm py-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
                 Revoke Link
               </button>
-
             } @else {
               <!-- No active link — create form -->
               <div class="space-y-4">
                 <div>
                   <label class="label">Password for collaborator</label>
-                  <input
-                    type="text"
-                    [(ngModel)]="sharePassword"
-                    name="sharePassword"
-                    class="input-field"
-                    placeholder="e.g. p4ssw0rd"
-                  />
+                  <input type="text" [(ngModel)]="sharePassword" name="sharePassword" class="input-field" placeholder="e.g. p4ssw0rd" />
                   <p class="text-xs text-slate-400 mt-1">Share this password along with the link.</p>
                 </div>
                 <div>
@@ -273,23 +268,18 @@ import { environment } from '../../../../environments/environment';
                   <p class="text-sm text-red-600">{{ shareError() }}</p>
                 }
 
-                <button
-                  (click)="createLink()"
-                  [disabled]="shareLoading() || !sharePassword"
-                  class="btn-primary w-full justify-center"
-                >
+                <button (click)="createLink()" [disabled]="shareLoading() || !sharePassword" class="btn-primary w-full justify-center">
                   @if (shareLoading()) {
                     <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                   } @else {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
                   }
                   Generate Share Link
                 </button>
               </div>
             }
-
           </div>
         </div>
       </div>
@@ -313,20 +303,23 @@ export class InvoicePreviewComponent implements OnInit {
   showShareModal = signal(false);
   shareInfo = signal<ShareInfo | null>(null);
   shareLoading = signal(false);
-  shareError = signal('');
-  sharePassword = '';
+  shareError = signal("");
+  sharePassword = "";
   shareExpiry: number | null = null;
   copied = signal(false);
 
   ngOnInit(): void {
-    this.invoiceId = parseInt(this.route.snapshot.paramMap.get('id')!);
+    this.invoiceId = parseInt(this.route.snapshot.paramMap.get("id")!);
     this.loadInvoice();
     this.loadProfile();
   }
 
   loadInvoice(): void {
     this.invoiceService.getById(this.invoiceId).subscribe({
-      next: (inv) => { this.invoice.set(inv); this.loading.set(false); },
+      next: (inv) => {
+        this.invoice.set(inv);
+        this.loading.set(false);
+      },
       error: () => this.loading.set(false),
     });
   }
@@ -337,19 +330,24 @@ export class InvoicePreviewComponent implements OnInit {
 
   getLogoUrl(): string {
     const p = this.profile();
-    if (!p?.logo_path) return '';
+    if (!p?.logo_path) return "";
     return `${environment.uploadsUrl}/${p.logo_path}`;
   }
 
   getSignatureUrl(): string {
     const p = this.profile();
-    if (!p?.signature_path) return '';
+    if (!p?.signature_path) return "";
     return `${environment.uploadsUrl}/${p.signature_path}`;
   }
 
   getUserInitials(): string {
-    const name = this.profile()?.name || 'JP';
-    return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+    const name = this.profile()?.name || "JP";
+    return name
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   }
 
   downloadPDF(): void {
@@ -357,16 +355,16 @@ export class InvoicePreviewComponent implements OnInit {
     this.invoiceService.downloadPDF(this.invoiceId).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
         a.download = `invoice-${this.invoice()?.invoice_number}.pdf`;
         a.click();
         URL.revokeObjectURL(url);
-        this.toast.success('PDF downloaded!');
+        this.toast.success("PDF downloaded!");
         this.downloading.set(false);
       },
       error: () => {
-        this.toast.error('Failed to generate PDF');
+        this.toast.error("Failed to generate PDF");
         this.downloading.set(false);
       },
     });
@@ -376,12 +374,12 @@ export class InvoicePreviewComponent implements OnInit {
 
   shareUrl(): string {
     const token = this.shareInfo()?.token;
-    return token ? `${window.location.origin}/share/${token}` : '';
+    return token ? `${window.location.origin}/share/${token}` : "";
   }
 
   openShareModal(): void {
     this.showShareModal.set(true);
-    this.shareError.set('');
+    this.shareError.set("");
     this.shareService.getShareInfo(this.invoiceId).subscribe({
       next: (info) => this.shareInfo.set(info),
       error: () => this.shareInfo.set({ active: false }),
@@ -390,23 +388,23 @@ export class InvoicePreviewComponent implements OnInit {
 
   closeShareModal(): void {
     this.showShareModal.set(false);
-    this.sharePassword = '';
+    this.sharePassword = "";
     this.shareExpiry = null;
-    this.shareError.set('');
+    this.shareError.set("");
   }
 
   createLink(): void {
     if (!this.sharePassword) return;
     this.shareLoading.set(true);
-    this.shareError.set('');
+    this.shareError.set("");
     this.shareService.createLink(this.invoiceId, this.sharePassword, this.shareExpiry ?? undefined).subscribe({
       next: (res) => {
         this.shareInfo.set({ active: true, token: res.token, expires_at: res.expires_at });
         this.shareLoading.set(false);
-        this.sharePassword = '';
+        this.sharePassword = "";
       },
       error: (err) => {
-        this.shareError.set(err?.error?.error || 'Failed to create link.');
+        this.shareError.set(err?.error?.error || "Failed to create link.");
         this.shareLoading.set(false);
       },
     });
@@ -418,11 +416,11 @@ export class InvoicePreviewComponent implements OnInit {
       next: () => {
         this.shareInfo.set({ active: false });
         this.shareLoading.set(false);
-        this.toast.success('Share link revoked.');
+        this.toast.success("Share link revoked.");
       },
       error: () => {
         this.shareLoading.set(false);
-        this.toast.error('Failed to revoke link.');
+        this.toast.error("Failed to revoke link.");
       },
     });
   }
