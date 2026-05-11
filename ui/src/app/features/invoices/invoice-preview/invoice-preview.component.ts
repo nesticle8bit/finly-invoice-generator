@@ -116,7 +116,7 @@ import { environment } from '../../../../environments/environment';
                   <tr>
                     <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:left;">Task Description</th>
                     <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:center;">Hours</th>
-                    <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:center;">Rate</th>
+                    <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:center; white-space:nowrap;">Rate</th>
                     <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:right;">Amount</th>
                   </tr>
                 </thead>
@@ -125,7 +125,7 @@ import { environment } from '../../../../environments/environment';
                     <tr [style.background]="i % 2 === 0 ? '#f9fafb' : '#ffffff'">
                       <td style="padding:10px 16px; font-size:12px; color:#374151; border-bottom:1px solid #f3f4f6;">{{ item.description }}</td>
                       <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:center; border-bottom:1px solid #f3f4f6;">{{ item.hours }}</td>
-                      <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:center; border-bottom:1px solid #f3f4f6;">{{ item.rate }} €</td>
+                      <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:center; white-space:nowrap; border-bottom:1px solid #f3f4f6;">{{ item.rate }} €</td>
                       <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:right; border-bottom:1px solid #f3f4f6;">{{ item.amount | number:'1.0-2' }} €</td>
                     </tr>
                   }
