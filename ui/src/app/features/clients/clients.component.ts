@@ -80,7 +80,7 @@ import { Client } from "../../core/models";
     <!-- Modal -->
     @if (showModal()) {
       <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full animate-fade-in">
+        <div class="bg-white rounded-2xl shadow-2xl w-md animate-fade-in">
           <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
             <h2 class="font-bold text-slate-900">{{ editingClient() ? "Edit Client" : "New Client" }}</h2>
             <button (click)="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
