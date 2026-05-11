@@ -34,7 +34,7 @@ export async function getClient(req: AuthRequest, res: Response): Promise<void> 
 }
 
 export async function createClient(req: AuthRequest, res: Response): Promise<void> {
-  const { name, address, city, postal_code, country, vat, email } = req.body;
+  const { name, address, city, postal_code, country, vat, email, currency } = req.body;
 
   if (!name) {
     res.status(400).json({ error: 'Client name is required' });
@@ -43,9 +43,9 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
 
   try {
     const result = await query(
-      `INSERT INTO clients (user_id, name, address, city, postal_code, country, vat, email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [req.userId, name, address, city, postal_code, country, vat, email]
+      `INSERT INTO clients (user_id, name, address, city, postal_code, country, vat, email, currency)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [req.userId, name, address, city, postal_code, country, vat, email, currency || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -56,7 +56,7 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
 
 export async function updateClient(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const { name, address, city, postal_code, country, vat, email } = req.body;
+  const { name, address, city, postal_code, country, vat, email, currency } = req.body;
 
   try {
     const result = await query(
@@ -68,9 +68,10 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
          country = COALESCE($5, country),
          vat = COALESCE($6, vat),
          email = COALESCE($7, email),
+         currency = $8,
          updated_at = NOW()
-       WHERE id = $8 AND user_id = $9 RETURNING *`,
-      [name, address, city, postal_code, country, vat, email, id, req.userId]
+       WHERE id = $9 AND user_id = $10 RETURNING *`,
+      [name, address, city, postal_code, country, vat, email, currency || null, id, req.userId]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'Client not found' });

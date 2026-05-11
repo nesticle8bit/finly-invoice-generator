@@ -247,11 +247,11 @@ export async function downloadPDF(req: AuthRequest, res: Response): Promise<void
     const invoiceResult = await query(
       `SELECT i.*, c.name as client_name, c.address as client_address,
               c.city as client_city, c.postal_code as client_postal_code,
-              c.vat as client_vat,
+              c.vat as client_vat, c.currency as client_currency,
               u.name as user_name, u.email as user_email,
               p.vat as user_vat, p.phone as user_phone,
               p.logo_path, p.signature_path, p.swift, p.iban, p.bank_name,
-              p.currency
+              COALESCE(c.currency, p.currency, 'EUR') as currency
        FROM invoices i
        LEFT JOIN clients c ON c.id = i.client_id
        LEFT JOIN users u ON u.id = i.user_id

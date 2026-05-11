@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS clients (
   country VARCHAR(100),
   vat VARCHAR(100),
   email VARCHAR(255),
+  currency VARCHAR(10) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -109,11 +110,16 @@ CREATE INDEX IF NOT EXISTS idx_share_tokens_token ON invoice_share_tokens(token)
 CREATE INDEX IF NOT EXISTS idx_share_tokens_invoice_id ON invoice_share_tokens(invoice_id);
 `;
 
+const alterations = `
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT NULL;
+`;
+
 async function migrate() {
   const client = await pool.connect();
   try {
     console.log('🚀 Running database migrations...');
     await client.query(schema);
+    await client.query(alterations);
     console.log('✅ Migrations completed successfully!');
   } catch (err) {
     console.error('❌ Migration failed:', err);

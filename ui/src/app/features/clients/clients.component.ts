@@ -59,6 +59,9 @@ import { Client } from '../../core/models';
             @if (client.email) {
               <p class="text-xs text-primary-600 mt-2">{{ client.email }}</p>
             }
+            @if (client.currency) {
+              <span class="inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 border border-accent-200">{{ client.currency }}</span>
+            }
           </div>
         } @empty {
           <div class="col-span-3 card p-16 text-center text-slate-400">
@@ -115,6 +118,15 @@ import { Client } from '../../core/models';
                 <label class="label">Email</label>
                 <input type="email" formControlName="email" placeholder="billing@company.com" class="input-field">
               </div>
+              <div>
+                <label class="label">Currency</label>
+                <select formControlName="currency" class="input-field">
+                  <option value="">Profile default</option>
+                  <option value="EUR">€ Euro (EUR)</option>
+                  <option value="USD">$ US Dollar (USD)</option>
+                  <option value="COP">COP Colombian Peso</option>
+                </select>
+              </div>
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
@@ -147,6 +159,7 @@ export class ClientsComponent implements OnInit {
     country: [''],
     vat: [''],
     email: ['', Validators.email],
+    currency: [''],
   });
 
   ngOnInit(): void {

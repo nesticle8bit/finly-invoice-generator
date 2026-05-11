@@ -55,7 +55,7 @@ function formatDate(dateStr: string): string {
 }
 
 function formatCurrency(amount: number, currency: string = 'EUR'): string {
-  const sym = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency;
+  const sym = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'COP' ? 'COP' : currency;
   return `${amount.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${sym}`;
 }
 
@@ -68,7 +68,7 @@ function buildInvoiceHTML(data: InvoiceData): string {
     <tr style="background: ${i % 2 === 0 ? '#f9fafb' : '#ffffff'};">
       <td style="padding: 10px 16px; font-size: 12px; color: #374151; border-bottom: 1px solid #f3f4f6;">${item.description}</td>
       <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: center; border-bottom: 1px solid #f3f4f6;">${item.hours}</td>
-      <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: center; border-bottom: 1px solid #f3f4f6;">${item.rate} ${sym}</td>
+      <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: center; white-space: nowrap; border-bottom: 1px solid #f3f4f6;">${item.rate} ${sym}</td>
       <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: right; border-bottom: 1px solid #f3f4f6;">${formatCurrency(item.amount, data.currency)}</td>
     </tr>
   `).join('');
@@ -169,7 +169,7 @@ function buildInvoiceHTML(data: InvoiceData): string {
         <tr>
           <th>Task Description</th>
           <th style="text-align:center;">Hours</th>
-          <th style="text-align:center;">Rate</th>
+          <th style="text-align:center; white-space:nowrap;">Rate</th>
           <th style="text-align:right;">Amount</th>
         </tr>
       </thead>

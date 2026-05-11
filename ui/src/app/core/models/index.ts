@@ -31,6 +31,7 @@ export interface Client {
   country: string | null;
   vat: string | null;
   email: string | null;
+  currency: string | null;
   created_at: string;
 }
 
