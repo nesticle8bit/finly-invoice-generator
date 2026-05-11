@@ -49,13 +49,7 @@ export async function listInvoices(req: AuthRequest, res: Response): Promise<voi
       paramIdx++;
     }
 
-    const countResult = await query(
-      sql.replace(
-        'SELECT i.id, i.invoice_number, i.date, i.status, i.total, i.created_at,\n             c.name as client_name',
-        'SELECT COUNT(*)'
-      ),
-      params
-    );
+    const countResult = await query(`SELECT COUNT(*) FROM (${sql}) AS _c`, params);
 
     sql += ` ORDER BY i.created_at DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
     params.push(parseInt(limit as string), offset);
