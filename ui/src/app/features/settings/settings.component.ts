@@ -13,274 +13,319 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [ReactiveFormsModule, DatePipe],
   template: `
-    <div class="p-8 mx-auto">
+    <div class="p-8 max-w-5xl">
+
+      <!-- Header -->
       <div class="mb-8">
         <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
-        <p class="text-slate-500 text-sm mt-0.5">Customize your profile and invoice defaults</p>
+        <p class="text-slate-500 text-sm mt-0.5">Manage your profile, billing details and assets</p>
       </div>
 
       @if (loading()) {
-        <div class="flex justify-center h-32 items-center">
-          <div class="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+        <div class="flex justify-center h-48 items-center">
+          <i class="ti ti-loader-2 text-3xl text-primary-600 animate-spin"></i>
         </div>
       } @else {
-        <!-- Tabs -->
-        <div class="flex gap-1 p-1 bg-slate-100 rounded-xl mb-6 w-fit">
-          @for (tab of visibleTabs(); track tab.id) {
-            <button
-              (click)="activeTab.set(tab.id)"
-              class="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
-              [class.bg-white]="activeTab() === tab.id"
-              [class.text-slate-900]="activeTab() === tab.id"
-              [class.shadow-sm]="activeTab() === tab.id"
-              [class.text-slate-500]="activeTab() !== tab.id"
-            >{{ tab.label }}</button>
-          }
-        </div>
 
-        <form [formGroup]="form" (ngSubmit)="onSave()">
+        <div class="flex gap-6 items-start">
 
-          <!-- Personal Info Tab -->
-          @if (activeTab() === 'personal') {
-            <div class="card p-6 mb-4 space-y-4">
-              <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Personal Information</h2>
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="label">Full Name</label>
-                  <input type="text" formControlName="name" placeholder="Julio Poveda" class="input-field">
-                </div>
-                <div>
-                  <label class="label">Email</label>
-                  <input type="email" formControlName="email" class="input-field bg-slate-50" readonly>
-                </div>
-                <div>
-                  <label class="label">VAT / Tax ID</label>
-                  <input type="text" formControlName="vat" placeholder="1017205178" class="input-field">
-                </div>
-                <div>
-                  <label class="label">Phone</label>
-                  <input type="text" formControlName="phone" placeholder="+57 319 249 0106" class="input-field">
-                </div>
-              </div>
-            </div>
-          }
+          <!-- LEFT: Vertical tab nav -->
+          <nav class="w-52 flex-shrink-0 flex flex-col gap-1">
+            @for (tab of visibleTabs(); track tab.id) {
+              <button
+                (click)="activeTab.set(tab.id)"
+                class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 text-left w-full"
+                [class.bg-primary-50]="activeTab() === tab.id"
+                [class.text-primary-700]="activeTab() === tab.id"
+                [class.font-semibold]="activeTab() === tab.id"
+                [class.text-slate-500]="activeTab() !== tab.id"
+                [class.hover:bg-slate-100]="activeTab() !== tab.id"
+                [class.hover:text-slate-700]="activeTab() !== tab.id"
+              >
+                <i [class]="'ti ' + tab.icon + ' text-lg leading-none'"></i>
+                {{ tab.label }}
+              </button>
+            }
+          </nav>
 
-          <!-- Payment Tab -->
-          @if (activeTab() === 'payment') {
-            <div class="card p-6 mb-4 space-y-4">
-              <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Payment Details</h2>
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="label">SWIFT / BIC</label>
-                  <input type="text" formControlName="swift" placeholder="TRWIBEB1XXX" class="input-field font-mono">
-                </div>
-                <div>
-                  <label class="label">IBAN</label>
-                  <input type="text" formControlName="iban" placeholder="BE71 9670 3909 1669" class="input-field font-mono">
-                </div>
-                <div>
-                  <label class="label">Bank Name</label>
-                  <input type="text" formControlName="bank_name" placeholder="Wise" class="input-field">
-                </div>
-                <div>
-                  <label class="label">Default Rate (per hour)</label>
-                  <div class="relative">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">€</span>
-                    <input type="number" formControlName="default_rate" placeholder="25" min="0" step="0.5" class="input-field pl-7">
+          <!-- RIGHT: Content -->
+          <div class="flex-1 min-w-0">
+            <form [formGroup]="form" (ngSubmit)="onSave()">
+
+              <!-- Personal Info -->
+              @if (activeTab() === 'personal') {
+                <div class="card p-6 space-y-5">
+                  <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+                    <div class="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center">
+                      <i class="ti ti-user-circle text-xl text-primary-600"></i>
+                    </div>
+                    <div>
+                      <h2 class="font-semibold text-slate-900 text-sm">Personal Information</h2>
+                      <p class="text-slate-400 text-xs">Your name and contact details appear on invoices</p>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="label">Full Name</label>
+                      <div class="relative">
+                        <i class="ti ti-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+                        <input type="text" formControlName="name" placeholder="Julio Poveda" class="input-field pl-9">
+                      </div>
+                    </div>
+                    <div>
+                      <label class="label">Email <span class="text-slate-400 font-normal normal-case text-xs">(read-only)</span></label>
+                      <div class="relative">
+                        <i class="ti ti-mail absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+                        <input type="email" formControlName="email" class="input-field pl-9 bg-slate-50 text-slate-400 cursor-not-allowed" readonly>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="label">VAT / Tax ID</label>
+                      <div class="relative">
+                        <i class="ti ti-receipt-tax absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+                        <input type="text" formControlName="vat" placeholder="1017205178" class="input-field pl-9">
+                      </div>
+                    </div>
+                    <div>
+                      <label class="label">Phone</label>
+                      <div class="relative">
+                        <i class="ti ti-phone absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+                        <input type="text" formControlName="phone" placeholder="+57 319 249 0106" class="input-field pl-9">
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label class="label">Currency</label>
-                  <select formControlName="currency" class="input-field">
-                    <option value="EUR">EUR (€)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="GBP">GBP (£)</option>
-                    <option value="COP">COP</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label class="label">Default Notes Template</label>
-                <textarea formControlName="notes_template" rows="3" placeholder="This invoice is for the total amount of hours worked from ... to ..." class="input-field resize-none"></textarea>
-              </div>
-            </div>
-          }
+              }
 
-          <!-- Assets Tab -->
-          @if (activeTab() === 'assets') {
-            <div class="space-y-4">
-              <!-- Logo -->
-              <div class="card p-6">
-                <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Invoice Logo</h2>
-                <div class="flex items-center gap-6">
-                  <div class="w-24 h-24 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden flex-shrink-0">
-                    @if (logoPreview() || profile()?.logo_path) {
-                      <img [src]="logoPreview() || getLogoUrl()" alt="Logo" class="w-full h-full object-contain p-2">
-                    } @else {
-                      <div class="text-slate-400 text-center">
-                        <svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
-                        <p class="text-xs mt-1">No logo</p>
+              <!-- Payment -->
+              @if (activeTab() === 'payment') {
+                <div class="card p-6 space-y-5">
+                  <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+                      <i class="ti ti-credit-card text-xl text-emerald-600"></i>
+                    </div>
+                    <div>
+                      <h2 class="font-semibold text-slate-900 text-sm">Payment Details</h2>
+                      <p class="text-slate-400 text-xs">Bank info and rate shown on generated invoices</p>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="label">SWIFT / BIC</label>
+                      <div class="relative">
+                        <i class="ti ti-building-bank absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+                        <input type="text" formControlName="swift" placeholder="TRWIBEB1XXX" class="input-field pl-9 font-mono uppercase tracking-wider">
                       </div>
-                    }
+                    </div>
+                    <div>
+                      <label class="label">IBAN</label>
+                      <div class="relative">
+                        <i class="ti ti-credit-card absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+                        <input type="text" formControlName="iban" placeholder="BE71 9670 3909 1669" class="input-field pl-9 font-mono">
+                      </div>
+                    </div>
+                    <div>
+                      <label class="label">Bank Name</label>
+                      <div class="relative">
+                        <i class="ti ti-building absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+                        <input type="text" formControlName="bank_name" placeholder="Wise" class="input-field pl-9">
+                      </div>
+                    </div>
+                    <div>
+                      <label class="label">Default Hourly Rate</label>
+                      <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold pointer-events-none">€</span>
+                        <input type="number" formControlName="default_rate" placeholder="25" min="0" step="0.5" class="input-field pl-7">
+                      </div>
+                    </div>
+                    <div>
+                      <label class="label">Default Currency</label>
+                      <div class="relative">
+                        <i class="ti ti-currency-euro absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+                        <select formControlName="currency" class="input-field pl-9">
+                          <option value="EUR">EUR — Euro (€)</option>
+                          <option value="USD">USD — US Dollar ($)</option>
+                          <option value="GBP">GBP — Pound (£)</option>
+                          <option value="COP">COP — Colombian Peso</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                   <div>
-                    <p class="text-sm text-slate-700 font-medium mb-1">Upload your logo</p>
-                    <p class="text-xs text-slate-500 mb-3">PNG, JPG or SVG. Max 5MB. Recommended: transparent background.</p>
-                    <label class="btn-secondary cursor-pointer text-xs py-2">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                      </svg>
-                      Choose File
-                      <input type="file" accept="image/*" class="hidden" (change)="onLogoSelected($event)">
-                    </label>
+                    <label class="label">Default Notes Template</label>
+                    <textarea formControlName="notes_template" rows="3" placeholder="This invoice is for the total amount of hours worked from ... to ..." class="input-field resize-none"></textarea>
+                    <p class="text-xs text-slate-400 mt-1.5">Used as default when creating new invoices.</p>
                   </div>
                 </div>
-              </div>
+              }
 
-              <!-- Signature -->
-              <div class="card p-6">
-                <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Signature</h2>
-                <div class="flex items-center gap-6">
-                  <div class="w-40 h-20 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden flex-shrink-0">
-                    @if (signaturePreview() || profile()?.signature_path) {
-                      <img [src]="signaturePreview() || getSignatureUrl()" alt="Signature" class="h-full object-contain p-2">
-                    } @else {
-                      <div class="text-slate-400 text-center">
-                        <p class="text-xs">No signature</p>
+              <!-- Assets -->
+              @if (activeTab() === 'assets') {
+                <div class="space-y-4">
+                  <!-- Logo -->
+                  <div class="card p-6">
+                    <div class="flex items-center gap-3 pb-4 border-b border-slate-100 mb-5">
+                      <div class="w-9 h-9 rounded-xl bg-accent-500/10 flex items-center justify-center">
+                        <i class="ti ti-photo text-xl text-accent-600"></i>
                       </div>
-                    }
+                      <div>
+                        <h2 class="font-semibold text-slate-900 text-sm">Invoice Logo</h2>
+                        <p class="text-slate-400 text-xs">Appears at the top-left of your invoices</p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                      <div class="w-28 h-28 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden flex-shrink-0 transition-colors hover:border-primary-300">
+                        @if (logoPreview() || profile()?.logo_path) {
+                          <img [src]="logoPreview() || getLogoUrl()" alt="Logo" class="w-full h-full object-contain p-3">
+                        } @else {
+                          <div class="text-slate-300 text-center">
+                            <i class="ti ti-photo-off text-3xl"></i>
+                            <p class="text-xs mt-1 text-slate-400">No logo</p>
+                          </div>
+                        }
+                      </div>
+                      <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-700 mb-1">Upload company logo</p>
+                        <p class="text-xs text-slate-400 mb-4">PNG, JPG or SVG · Max 5 MB · Transparent background recommended</p>
+                        <label class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium cursor-pointer transition-colors shadow-sm">
+                          <i class="ti ti-upload text-base"></i>
+                          Choose file
+                          <input type="file" accept="image/*" class="hidden" (change)="onLogoSelected($event)">
+                        </label>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p class="text-sm text-slate-700 font-medium mb-1">Upload your signature</p>
-                    <p class="text-xs text-slate-500 mb-3">PNG with transparent background recommended.</p>
-                    <label class="btn-secondary cursor-pointer text-xs py-2">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                      </svg>
-                      Choose File
-                      <input type="file" accept="image/*" class="hidden" (change)="onSignatureSelected($event)">
-                    </label>
+
+                  <!-- Signature -->
+                  <div class="card p-6">
+                    <div class="flex items-center gap-3 pb-4 border-b border-slate-100 mb-5">
+                      <div class="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+                        <i class="ti ti-signature text-xl text-indigo-600"></i>
+                      </div>
+                      <div>
+                        <h2 class="font-semibold text-slate-900 text-sm">Signature</h2>
+                        <p class="text-slate-400 text-xs">Appears at the bottom of your invoices</p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                      <div class="w-44 h-24 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden flex-shrink-0 transition-colors hover:border-primary-300">
+                        @if (signaturePreview() || profile()?.signature_path) {
+                          <img [src]="signaturePreview() || getSignatureUrl()" alt="Signature" class="h-full object-contain p-2">
+                        } @else {
+                          <div class="text-slate-300 text-center">
+                            <i class="ti ti-writing-off text-2xl"></i>
+                            <p class="text-xs mt-1 text-slate-400">No signature</p>
+                          </div>
+                        }
+                      </div>
+                      <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-700 mb-1">Upload signature image</p>
+                        <p class="text-xs text-slate-400 mb-4">PNG with transparent background recommended</p>
+                        <label class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium cursor-pointer transition-colors shadow-sm">
+                          <i class="ti ti-upload text-base"></i>
+                          Choose file
+                          <input type="file" accept="image/*" class="hidden" (change)="onSignatureSelected($event)">
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          }
+              }
 
-          <!-- Save Button (not for assets / invite tabs) -->
-          @if (activeTab() !== 'assets' && activeTab() !== 'invites') {
-            <div class="flex justify-end mt-4">
-              <button type="submit" [disabled]="saving()" class="btn-primary">
-                {{ saving() ? 'Saving...' : 'Save Changes' }}
-              </button>
-            </div>
-          }
-        </form>
+              <!-- Save button -->
+              @if (activeTab() !== 'assets' && activeTab() !== 'invites') {
+                <div class="flex justify-end mt-5">
+                  <button type="submit" [disabled]="saving()" class="btn-primary gap-2">
+                    @if (saving()) {
+                      <i class="ti ti-loader-2 animate-spin text-base"></i>
+                      Saving...
+                    } @else {
+                      <i class="ti ti-check text-base"></i>
+                      Save Changes
+                    }
+                  </button>
+                </div>
+              }
+            </form>
 
-        <!-- Invite Codes Tab (outside the form) -->
-        @if (activeTab() === 'invites') {
-          <div class="space-y-4">
+            <!-- Invite Codes -->
+            @if (activeTab() === 'invites') {
+              <div class="space-y-4">
+                <div class="card p-6">
+                  <div class="flex items-center gap-3 pb-4 border-b border-slate-100 mb-5">
+                    <div class="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
+                      <i class="ti ti-ticket text-xl text-amber-600"></i>
+                    </div>
+                    <div class="flex-1">
+                      <h2 class="font-semibold text-slate-900 text-sm">Invitation Codes</h2>
+                      <p class="text-slate-400 text-xs">Single-use codes that allow others to register</p>
+                    </div>
+                    <button (click)="generateCode()" [disabled]="generatingCode()" class="btn-primary gap-2 text-sm py-2">
+                      @if (generatingCode()) {
+                        <i class="ti ti-loader-2 animate-spin text-base"></i>
+                      } @else {
+                        <i class="ti ti-plus text-base"></i>
+                      }
+                      Generate
+                    </button>
+                  </div>
 
-            <!-- Generate button -->
-            <div class="flex items-center justify-between">
-              <p class="text-sm text-slate-500">Generate single-use codes and share them so others can register.</p>
-              <button (click)="generateCode()" [disabled]="generatingCode()" class="btn-primary">
-                @if (generatingCode()) {
-                  <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                } @else {
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                  </svg>
-                }
-                Generate Code
-              </button>
-            </div>
-
-            <!-- Codes list -->
-            @if (codesLoading()) {
-              <div class="flex justify-center h-24 items-center">
-                <div class="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            } @else if (codes().length === 0) {
-              <div class="card p-8 text-center">
-                <p class="text-slate-400 text-sm">No invitation codes yet. Generate one to get started.</p>
-              </div>
-            } @else {
-              <div class="card overflow-hidden">
-                <table class="w-full">
-                  <thead class="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Code</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Used by</th>
-                      <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
-                      <th class="px-4 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100">
-                    @for (code of codes(); track code.id) {
-                      <tr>
-                        <td class="px-4 py-3">
-                          <div class="flex items-center gap-2">
-                            <span class="font-mono text-sm font-semibold text-slate-800">{{ code.code }}</span>
+                  @if (codesLoading()) {
+                    <div class="flex justify-center h-20 items-center">
+                      <i class="ti ti-loader-2 text-2xl text-primary-600 animate-spin"></i>
+                    </div>
+                  } @else if (codes().length === 0) {
+                    <div class="text-center py-10">
+                      <i class="ti ti-ticket-off text-4xl text-slate-300"></i>
+                      <p class="text-slate-400 text-sm mt-2">No codes yet. Generate one to get started.</p>
+                    </div>
+                  } @else {
+                    <div class="divide-y divide-slate-100">
+                      @for (code of codes(); track code.id) {
+                        <div class="flex items-center justify-between py-3">
+                          <div class="flex items-center gap-3">
+                            <span class="font-mono text-sm font-bold text-slate-800 bg-slate-100 px-3 py-1 rounded-lg tracking-wider">{{ code.code }}</span>
                             @if (!code.used_at) {
-                              <button
-                                (click)="copyCode(code.code)"
-                                class="text-slate-400 hover:text-primary-600 transition-colors"
-                              >
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                                </svg>
+                              <button (click)="copyCode(code.code)" class="text-slate-400 hover:text-primary-600 transition-colors" title="Copy">
+                                <i class="ti ti-copy text-base"></i>
                               </button>
                             }
                           </div>
-                        </td>
-                        <td class="px-4 py-3">
-                          @if (code.used_at) {
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
-                              <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Used
-                            </span>
-                          } @else {
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
-                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Available
-                            </span>
-                          }
-                        </td>
-                        <td class="px-4 py-3 text-sm text-slate-600">
-                          @if (code.used_by_name) {
-                            <div>
-                              <p class="font-medium text-slate-700 text-xs">{{ code.used_by_name }}</p>
-                              <p class="text-slate-400 text-xs">{{ code.used_by_email }}</p>
-                            </div>
-                          } @else {
-                            <span class="text-slate-400 text-xs">—</span>
-                          }
-                        </td>
-                        <td class="px-4 py-3 text-xs text-slate-400">
-                          {{ code.created_at | date:'MMM d, y' }}
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                          @if (!code.used_at) {
-                            <button
-                              (click)="deleteCode(code.id)"
-                              class="text-slate-300 hover:text-red-500 transition-colors"
-                            >
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                              </svg>
-                            </button>
-                          }
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
+                          <div class="flex items-center gap-4">
+                            @if (code.used_by_name) {
+                              <div class="text-right">
+                                <p class="text-xs font-medium text-slate-700">{{ code.used_by_name }}</p>
+                                <p class="text-xs text-slate-400">{{ code.used_by_email }}</p>
+                              </div>
+                            }
+                            @if (code.used_at) {
+                              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Used
+                              </span>
+                            } @else {
+                              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Available
+                              </span>
+                            }
+                            <span class="text-xs text-slate-400 w-20 text-right">{{ code.created_at | date:'MMM d, y' }}</span>
+                            @if (!code.used_at) {
+                              <button (click)="deleteCode(code.id)" class="text-slate-300 hover:text-red-500 transition-colors">
+                                <i class="ti ti-trash text-base"></i>
+                              </button>
+                            } @else {
+                              <span class="w-5"></span>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
               </div>
             }
-          </div>
-        }
 
+          </div>
+        </div>
       }
     </div>
   `,
@@ -307,10 +352,10 @@ export class SettingsComponent implements OnInit {
   isAdmin = () => this.auth.currentUser()?.id === 1;
 
   allTabs = [
-    { id: 'personal', label: 'Personal' },
-    { id: 'payment', label: 'Payment' },
-    { id: 'assets', label: 'Logo & Signature' },
-    { id: 'invites', label: 'Invite Codes' },
+    { id: 'personal', label: 'Personal',        icon: 'ti-user-circle'  },
+    { id: 'payment',  label: 'Payment',          icon: 'ti-credit-card'  },
+    { id: 'assets',   label: 'Logo & Signature', icon: 'ti-photo'        },
+    { id: 'invites',  label: 'Invite Codes',     icon: 'ti-ticket'       },
   ];
 
   visibleTabs = () => this.allTabs.filter(t => t.id !== 'invites' || this.isAdmin());
