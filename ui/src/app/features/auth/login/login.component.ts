@@ -10,128 +10,262 @@ import { ToastService } from '../../../core/services/toast.service';
   standalone: true,
   imports: [ReactiveFormsModule, NgClass, RouterLink],
   template: `
-    <div class="min-h-screen bg-dark-900 flex items-center justify-center p-4">
-      <!-- Background grid -->
-      <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cdefs%3E%3Cpattern id=%22grid%22 width=%2260%22 height=%2260%22 patternUnits=%22userSpaceOnUse%22%3E%3Cpath d=%22M 60 0 L 0 0 0 60%22 fill=%22none%22 stroke=%22rgba(255,255,255,0.03)%22 stroke-width=%221%22/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22url(%23grid)%22/%3E%3C/svg%3E')]"></div>
+    <div class="min-h-screen bg-dark-950 flex">
 
-      <!-- Glow effects -->
-      <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-primary-600/20 rounded-full blur-3xl"></div>
-      <div class="absolute bottom-1/4 left-1/3 w-64 h-64 bg-accent-500/10 rounded-full blur-3xl"></div>
+      <!-- LEFT PANEL — branding -->
+      <div class="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden bg-gradient-to-br from-dark-900 to-dark-950">
+        <!-- Grid texture -->
+        <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cdefs%3E%3Cpattern id=%22grid%22 width=%2260%22 height=%2260%22 patternUnits=%22userSpaceOnUse%22%3E%3Cpath d=%22M 60 0 L 0 0 0 60%22 fill=%22none%22 stroke=%22rgba(255,255,255,0.03)%22 stroke-width=%221%22/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22url(%23grid)%22/%3E%3C/svg%3E')] opacity-60"></div>
+        <!-- Glow orbs -->
+        <div class="absolute top-1/3 left-1/4 w-80 h-80 bg-primary-600/25 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-56 h-56 bg-accent-500/15 rounded-full blur-3xl"></div>
 
-      <div class="relative w-full max-w-md">
         <!-- Logo -->
-        <div class="text-center mb-8">
-          <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 shadow-2xl shadow-primary-500/40 mb-4">
-            <span class="text-white font-black text-2xl">F</span>
+        <div class="relative z-10">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 shadow-lg shadow-primary-500/40">
+              <span class="text-white font-black text-lg">F</span>
+            </div>
+            <span class="text-white font-bold text-xl tracking-tight">Finly</span>
           </div>
-          <h1 class="text-white text-3xl font-bold">Finly</h1>
-          <p class="text-slate-400 text-sm mt-1">Invoice Generator</p>
         </div>
 
-        <!-- Card -->
-        <div class="bg-dark-800/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+        <!-- Center copy -->
+        <div class="relative z-10 space-y-8">
+          <div class="space-y-4">
+            <h2 class="text-white text-4xl font-bold leading-tight">
+              Invoicing<br>
+              <span class="bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">made simple.</span>
+            </h2>
+            <p class="text-slate-400 text-base leading-relaxed max-w-xs">
+              Generate professional invoices, track your work hours, and get paid faster.
+            </p>
+          </div>
+
+          <!-- Feature pills -->
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center gap-3 text-slate-300 text-sm">
+              <div class="w-8 h-8 rounded-lg bg-primary-500/15 border border-primary-500/20 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              PDF invoice generation
+            </div>
+            <div class="flex items-center gap-3 text-slate-300 text-sm">
+              <div class="w-8 h-8 rounded-lg bg-primary-500/15 border border-primary-500/20 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              Hourly rate tracking
+            </div>
+            <div class="flex items-center gap-3 text-slate-300 text-sm">
+              <div class="w-8 h-8 rounded-lg bg-primary-500/15 border border-primary-500/20 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+              </div>
+              IBAN &amp; SWIFT payment details
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="relative z-10">
+          <p class="text-slate-600 text-xs">© {{ year }} Finly Invoice Generator</p>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL — form -->
+      <div class="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 relative">
+        <!-- Mobile logo -->
+        <div class="lg:hidden flex items-center gap-3 mb-10">
+          <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 shadow-lg shadow-primary-500/40">
+            <span class="text-white font-black text-lg">F</span>
+          </div>
+          <span class="text-white font-bold text-xl tracking-tight">Finly</span>
+        </div>
+
+        <div class="w-full max-w-sm">
+          <!-- Header -->
+          <div class="mb-8">
+            <h2 class="text-white text-2xl font-bold mb-1">
+              {{ mode() === 'login' ? 'Welcome back' : 'Create account' }}
+            </h2>
+            <p class="text-slate-500 text-sm">
+              {{ mode() === 'login' ? 'Sign in to your account to continue' : 'Get started with Finly today' }}
+            </p>
+          </div>
+
           <!-- Tabs -->
-          <div class="flex gap-1 p-1 bg-dark-900/60 rounded-xl mb-6">
+          <div class="flex gap-1 p-1 bg-dark-800/60 border border-white/5 rounded-xl mb-7">
             <button
               (click)="mode.set('login')"
               class="flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
               [class.bg-white]="mode() === 'login'"
               [class.text-dark-900]="mode() === 'login'"
-              [class.text-slate-400]="mode() !== 'login'"
+              [class.shadow-sm]="mode() === 'login'"
+              [class.text-slate-500]="mode() !== 'login'"
             >Sign In</button>
             <button
               (click)="mode.set('register')"
               class="flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
               [class.bg-white]="mode() === 'register'"
               [class.text-dark-900]="mode() === 'register'"
-              [class.text-slate-400]="mode() !== 'register'"
+              [class.shadow-sm]="mode() === 'register'"
+              [class.text-slate-500]="mode() !== 'register'"
             >Register</button>
           </div>
 
           <!-- Login Form -->
           @if (mode() === 'login') {
-            <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="space-y-4">
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Email</label>
-                <input
-                  type="email"
-                  formControlName="email"
-                  placeholder="you@example.com"
-                  class="w-full px-4 py-3 bg-dark-900/60 border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                >
+            <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="space-y-5">
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="email"
+                    formControlName="email"
+                    placeholder="you@example.com"
+                    class="w-full pl-10 pr-4 py-3 bg-dark-800/60 border border-white/8 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:border-primary-500/40 transition-all"
+                  >
+                </div>
               </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
-                <input
-                  type="password"
-                  formControlName="password"
-                  placeholder="••••••••"
-                  class="w-full px-4 py-3 bg-dark-900/60 border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                >
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="password"
+                    formControlName="password"
+                    placeholder="••••••••"
+                    class="w-full pl-10 pr-4 py-3 bg-dark-800/60 border border-white/8 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:border-primary-500/40 transition-all"
+                  >
+                </div>
               </div>
               <button
                 type="submit"
                 [disabled]="loginForm.invalid || loading()"
-                class="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-2"
+                class="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 mt-1"
               >
-                @if (loading()) { <span>Signing in...</span> } @else { <span>Sign In →</span> }
+                @if (loading()) {
+                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  <span>Signing in...</span>
+                } @else {
+                  <span>Sign In</span>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                }
               </button>
             </form>
           }
 
           <!-- Register Form -->
           @if (mode() === 'register') {
-            <form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="space-y-4">
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Full Name</label>
-                <input
-                  type="text"
-                  formControlName="name"
-                  placeholder="Julio Poveda"
-                  class="w-full px-4 py-3 bg-dark-900/60 border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                >
+            <form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="space-y-5">
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Full Name</label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    formControlName="name"
+                    placeholder="Julio Poveda"
+                    class="w-full pl-10 pr-4 py-3 bg-dark-800/60 border border-white/8 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:border-primary-500/40 transition-all"
+                  >
+                </div>
               </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Email</label>
-                <input
-                  type="email"
-                  formControlName="email"
-                  placeholder="you@example.com"
-                  class="w-full px-4 py-3 bg-dark-900/60 border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                >
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="email"
+                    formControlName="email"
+                    placeholder="you@example.com"
+                    class="w-full pl-10 pr-4 py-3 bg-dark-800/60 border border-white/8 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:border-primary-500/40 transition-all"
+                  >
+                </div>
               </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
-                <input
-                  type="password"
-                  formControlName="password"
-                  placeholder="Min 6 characters"
-                  class="w-full px-4 py-3 bg-dark-900/60 border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                >
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="password"
+                    formControlName="password"
+                    placeholder="Min 6 characters"
+                    class="w-full pl-10 pr-4 py-3 bg-dark-800/60 border border-white/8 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:border-primary-500/40 transition-all"
+                  >
+                </div>
               </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Invitation Code</label>
-                <input
-                  type="text"
-                  formControlName="invite_code"
-                  placeholder="XXXX-XXXX"
-                  autocomplete="off"
-                  class="w-full px-4 py-3 bg-dark-900/60 border border-white/10 rounded-xl text-white placeholder-slate-500 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                >
-                <p class="text-slate-600 text-xs mt-1.5">Not required for the first account.</p>
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Invitation Code</label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    formControlName="invite_code"
+                    placeholder="XXXX-XXXX"
+                    autocomplete="off"
+                    class="w-full pl-10 pr-4 py-3 bg-dark-800/60 border border-white/8 rounded-xl text-white placeholder-slate-600 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:border-primary-500/40 transition-all"
+                  >
+                </div>
+                <p class="text-slate-600 text-xs">Not required for the first account.</p>
               </div>
               <button
                 type="submit"
                 [disabled]="registerForm.invalid || loading()"
-                class="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary-500/30 disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-2"
+                class="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 mt-1"
               >
-                @if (loading()) { <span>Creating account...</span> } @else { <span>Create Account →</span> }
+                @if (loading()) {
+                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  <span>Creating account...</span>
+                } @else {
+                  <span>Create Account</span>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
+                }
               </button>
             </form>
           }
-        </div>
 
-        <p class="text-center text-slate-600 text-xs mt-6">Invoice Generator © {{ year }}</p>
+          <p class="text-center text-slate-700 text-xs mt-8">© {{ year }} Finly Invoice Generator</p>
+        </div>
       </div>
     </div>
   `,
