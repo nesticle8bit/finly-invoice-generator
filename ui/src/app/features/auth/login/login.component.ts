@@ -125,9 +125,7 @@ import { ToastService } from '../../../core/services/toast.service';
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
-                    </svg>
+                    <i class="ti ti-mail text-slate-600 text-base"></i>
                   </div>
                   <input
                     type="email"
@@ -141,9 +139,7 @@ import { ToastService } from '../../../core/services/toast.service';
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
+                    <i class="ti ti-lock text-slate-600 text-base"></i>
                   </div>
                   <input
                     type="password"
@@ -159,16 +155,11 @@ import { ToastService } from '../../../core/services/toast.service';
                 class="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 mt-1"
               >
                 @if (loading()) {
-                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
+                  <i class="ti ti-loader-2 text-base animate-spin"></i>
                   <span>Signing in...</span>
                 } @else {
                   <span>Sign In</span>
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                  </svg>
+                  <i class="ti ti-arrow-right text-base"></i>
                 }
               </button>
             </form>
@@ -181,9 +172,7 @@ import { ToastService } from '../../../core/services/toast.service';
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Full Name</label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                    </svg>
+                    <i class="ti ti-user text-slate-600 text-base"></i>
                   </div>
                   <input
                     type="text"
@@ -197,9 +186,7 @@ import { ToastService } from '../../../core/services/toast.service';
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
-                    </svg>
+                    <i class="ti ti-mail text-slate-600 text-base"></i>
                   </div>
                   <input
                     type="email"
@@ -213,9 +200,7 @@ import { ToastService } from '../../../core/services/toast.service';
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
+                    <i class="ti ti-lock text-slate-600 text-base"></i>
                   </div>
                   <input
                     type="password"
@@ -229,9 +214,7 @@ import { ToastService } from '../../../core/services/toast.service';
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Invitation Code</label>
                 <div class="relative">
                   <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                    </svg>
+                    <i class="ti ti-key text-slate-600 text-base"></i>
                   </div>
                   <input
                     type="text"
@@ -249,16 +232,11 @@ import { ToastService } from '../../../core/services/toast.service';
                 class="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 mt-1"
               >
                 @if (loading()) {
-                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
+                  <i class="ti ti-loader-2 text-base animate-spin"></i>
                   <span>Creating account...</span>
                 } @else {
                   <span>Create Account</span>
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                  </svg>
+                  <i class="ti ti-arrow-right text-base"></i>
                 }
               </button>
             </form>
