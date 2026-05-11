@@ -70,7 +70,11 @@ export interface DashboardStats {
   sent_invoices: number;
   draft_invoices: number;
   total_revenue: number;
+  paid_revenue: number;
+  pending_revenue: number;
+  avg_invoice: number;
   month_revenue: number;
+  last_month_revenue: number;
   recent_invoices: Partial<Invoice>[];
 }
 

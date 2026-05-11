@@ -7,6 +7,7 @@ import { ClientService } from '../../../core/services/client.service';
 import { ProfileService } from '../../../core/services/profile.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Client, Profile } from '../../../core/models';
+import { merge } from 'rxjs';
 
 @Component({
   selector: 'app-invoice-editor',
@@ -225,6 +226,7 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadClients();
     this.loadProfile();
+    this.watchPeriod();
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
@@ -235,6 +237,21 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
       this.loadNextNumber();
       this.addItem();
     }
+  }
+
+  private watchPeriod(): void {
+    merge(
+      this.form.get('period_start')!.valueChanges,
+      this.form.get('period_end')!.valueChanges,
+    ).subscribe(() => {
+      const { period_start, period_end } = this.form.value;
+      if (!period_start || !period_end) return;
+      const fmt = (d: string) => { const [y, m, day] = d.split('-'); return `${day}.${m}.${y}`; };
+      this.form.patchValue(
+        { notes: `This invoice is for the total amount of hours worked from ${fmt(period_start)} to ${fmt(period_end)}` },
+        { emitEvent: false },
+      );
+    });
   }
 
   loadClients(): void {

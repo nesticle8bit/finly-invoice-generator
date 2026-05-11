@@ -291,9 +291,15 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
          COUNT(CASE WHEN status = 'sent' THEN 1 END) as sent_invoices,
          COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft_invoices,
          COALESCE(SUM(total), 0) as total_revenue,
+         COALESCE(SUM(CASE WHEN status = 'paid' THEN total END), 0) as paid_revenue,
+         COALESCE(SUM(CASE WHEN status = 'sent' THEN total END), 0) as pending_revenue,
+         COALESCE(ROUND(AVG(total)::numeric, 2), 0) as avg_invoice,
          COALESCE(SUM(CASE WHEN date_part('month', date) = date_part('month', NOW())
                            AND date_part('year', date) = date_part('year', NOW())
-                      THEN total END), 0) as month_revenue
+                      THEN total END), 0) as month_revenue,
+         COALESCE(SUM(CASE WHEN date_part('month', date) = date_part('month', NOW() - interval '1 month')
+                           AND date_part('year', date) = date_part('year', NOW() - interval '1 month')
+                      THEN total END), 0) as last_month_revenue
        FROM invoices WHERE user_id = $1`,
       [req.userId]
     );
