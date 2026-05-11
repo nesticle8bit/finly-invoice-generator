@@ -1,14 +1,15 @@
 import { Component, inject, OnInit, signal } from "@angular/core";
 import { FormBuilder, Validators, ReactiveFormsModule } from "@angular/forms";
-import { NgClass } from "@angular/common";
+import { NgClass, DatePipe, DecimalPipe } from "@angular/common";
 import { ClientService } from "../../core/services/client.service";
+import { InvoiceService } from "../../core/services/invoice.service";
 import { ToastService } from "../../core/services/toast.service";
-import { Client } from "../../core/models";
+import { Client, Invoice } from "../../core/models";
 
 @Component({
   selector: "app-clients",
   standalone: true,
-  imports: [ReactiveFormsModule, NgClass],
+  imports: [ReactiveFormsModule, NgClass, DatePipe, DecimalPipe],
   template: `
     <div class="p-8">
       <!-- Header -->
@@ -64,6 +65,15 @@ import { Client } from "../../core/models";
             @if (client.currency) {
               <span class="inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 border border-accent-200">{{ client.currency }}</span>
             }
+            @if (outstandingMap()[client.id]) {
+              <span class="inline-flex items-center gap-1 mt-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                <i class="ti ti-clock text-xs"></i>
+                €{{ outstandingMap()[client.id] | number:'1.0-2' }} outstanding
+              </span>
+            }
+            <button type="button" (click)="openHistory(client)" class="mt-3 text-xs text-primary-600 font-semibold hover:underline block">
+              View invoices →
+            </button>
           </div>
         } @empty {
           <div class="col-span-3 card p-16 text-center text-slate-400">
@@ -76,6 +86,60 @@ import { Client } from "../../core/models";
         }
       </div>
     </div>
+
+    <!-- Invoice History Panel -->
+    @if (historyClient()) {
+      <div class="fixed inset-0 z-50 flex justify-end">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" (click)="closeHistory()"></div>
+        <div class="relative bg-white w-full max-w-md h-full overflow-y-auto shadow-2xl flex flex-col">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white">
+            <div>
+              <h3 class="font-bold text-slate-900">{{ historyClient()!.name }}</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Invoice history</p>
+            </div>
+            <button (click)="closeHistory()" class="text-slate-400 hover:text-slate-600">
+              <i class="ti ti-x text-lg"></i>
+            </button>
+          </div>
+          <div class="p-6 flex-1">
+            @if (historyLoading()) {
+              <div class="flex items-center justify-center h-32">
+                <i class="ti ti-loader-2 text-2xl text-primary-600 animate-spin"></i>
+              </div>
+            } @else if (clientInvoices().length === 0) {
+              <p class="text-sm text-slate-400 text-center mt-8">No invoices for this client.</p>
+            } @else {
+              <div class="space-y-3">
+                @for (inv of clientInvoices(); track inv.id) {
+                  <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                    <div>
+                      <p class="text-sm font-bold text-primary-600">#{{ inv.invoice_number }}</p>
+                      <p class="text-xs text-slate-400">{{ inv.date | date:'MMM d, y' }}</p>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-sm font-bold text-slate-900">€{{ inv.total | number:'1.0-2' }}</p>
+                      <span [class]="inv.status === 'paid' ? 'badge-paid' : inv.status === 'sent' ? 'badge-sent' : 'badge-draft'">{{ inv.status }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+              <div class="mt-6 pt-4 border-t border-slate-100 space-y-1">
+                <div class="flex justify-between text-sm">
+                  <span class="text-slate-500">Total billed</span>
+                  <span class="font-bold text-slate-900">€{{ totalBilled() | number:'1.0-2' }}</span>
+                </div>
+                @if (totalOutstanding() > 0) {
+                  <div class="flex justify-between text-sm">
+                    <span class="text-amber-600">Outstanding</span>
+                    <span class="font-bold text-amber-700">€{{ totalOutstanding() | number:'1.0-2' }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
 
     <!-- Modal -->
     @if (showModal()) {
@@ -146,12 +210,41 @@ import { Client } from "../../core/models";
 export class ClientsComponent implements OnInit {
   private fb = inject(FormBuilder);
   private clientService = inject(ClientService);
+  private invoiceService = inject(InvoiceService);
   private toast = inject(ToastService);
 
   clients = signal<Client[]>([]);
   showModal = signal(false);
   editingClient = signal<Client | null>(null);
   saving = signal(false);
+  outstandingMap = signal<Record<number, number>>({});
+
+  historyClient = signal<Client | null>(null);
+  clientInvoices = signal<Invoice[]>([]);
+  historyLoading = signal(false);
+
+  totalBilled(): number {
+    return this.clientInvoices().reduce((s, i) => s + i.total, 0);
+  }
+
+  totalOutstanding(): number {
+    return this.clientInvoices().filter(i => i.status === 'sent').reduce((s, i) => s + i.total, 0);
+  }
+
+  openHistory(client: Client): void {
+    this.historyClient.set(client);
+    this.historyLoading.set(true);
+    this.clientInvoices.set([]);
+    this.invoiceService.list({ client_id: client.id }).subscribe({
+      next: (res) => { this.clientInvoices.set(res.data); this.historyLoading.set(false); },
+      error: () => this.historyLoading.set(false),
+    });
+  }
+
+  closeHistory(): void {
+    this.historyClient.set(null);
+    this.clientInvoices.set([]);
+  }
 
   clientForm = this.fb.group({
     name: ["", Validators.required],
@@ -169,7 +262,28 @@ export class ClientsComponent implements OnInit {
   }
 
   load(): void {
-    this.clientService.list().subscribe({ next: (c) => this.clients.set(c) });
+    this.clientService.list().subscribe({
+      next: (c) => {
+        this.clients.set(c);
+        this.loadOutstanding(c);
+      }
+    });
+  }
+
+  private loadOutstanding(clients: Client[]): void {
+    const map: Record<number, number> = {};
+    let pending = clients.length;
+    if (!pending) return;
+    for (const client of clients) {
+      this.invoiceService.list({ client_id: client.id, status: 'sent' }).subscribe({
+        next: (res) => {
+          const total = res.data.reduce((s, i) => s + i.total, 0);
+          if (total > 0) map[client.id] = total;
+          if (--pending === 0) this.outstandingMap.set({ ...map });
+        },
+        error: () => { if (--pending === 0) this.outstandingMap.set({ ...map }); },
+      });
+    }
   }
 
   openModal(client?: Client): void {

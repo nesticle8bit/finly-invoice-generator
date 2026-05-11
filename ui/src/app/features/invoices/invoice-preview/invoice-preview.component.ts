@@ -29,6 +29,39 @@ import { environment } from "../../../../environments/environment";
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <!-- Status flow buttons -->
+          @if (invoice()?.status === 'draft') {
+            <button (click)="updateStatus('sent')" [disabled]="updatingStatus()" class="btn-secondary text-sm py-2 gap-1.5">
+              <i class="ti ti-send text-base"></i>
+              Mark as Sent
+            </button>
+          }
+          @if (invoice()?.status === 'sent') {
+            <button (click)="updateStatus('paid')" [disabled]="updatingStatus()" class="btn-secondary text-sm py-2 gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50">
+              <i class="ti ti-circle-check text-base"></i>
+              Mark as Paid
+            </button>
+          }
+          @if (invoice()?.status === 'paid') {
+            <span class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+              <i class="ti ti-circle-check text-base"></i>
+              Paid
+            </span>
+          }
+          <!-- Overdue badge -->
+          @if (overdueDays() !== null) {
+            <span class="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg"
+              [class.bg-red-50]="overdueDays()! > 45"
+              [class.text-red-700]="overdueDays()! > 45"
+              [class.border-red-200]="overdueDays()! > 45"
+              [class.bg-amber-50]="overdueDays()! <= 45"
+              [class.text-amber-700]="overdueDays()! <= 45"
+              [class.border-amber-200]="overdueDays()! <= 45"
+              class="border">
+              <i class="ti ti-alert-triangle text-base"></i>
+              {{ overdueDays() }} days overdue
+            </span>
+          }
           @if (invoice()?.status === "draft") {
             <button (click)="openShareModal()" class="btn-secondary text-sm py-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -370,7 +403,31 @@ export class InvoicePreviewComponent implements OnInit {
     });
   }
 
-  // ─── Share modal ───────────────────────────────────────────────
+  updatingStatus = signal(false);
+
+  updateStatus(status: string): void {
+    this.updatingStatus.set(true);
+    this.invoiceService.update(this.invoiceId, { status } as any).subscribe({
+      next: (inv) => {
+        this.invoice.set(inv);
+        this.updatingStatus.set(false);
+        this.toast.success(`Invoice marked as ${status}`);
+      },
+      error: () => {
+        this.toast.error('Failed to update status');
+        this.updatingStatus.set(false);
+      },
+    });
+  }
+
+  overdueDays(): number | null {
+    const inv = this.invoice();
+    if (!inv || inv.status !== 'sent' || !inv.sent_at) return null;
+    const days = Math.floor((Date.now() - new Date(inv.sent_at).getTime()) / 86_400_000);
+    return days > 30 ? days : null;
+  }
+
+  //  Share modal 
 
   shareUrl(): string {
     const token = this.shareInfo()?.token;

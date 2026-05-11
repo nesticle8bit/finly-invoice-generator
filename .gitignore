@@ -1,31 +1,31 @@
-# ── Dependencies ───────────────────────────────────────────────
+#  Dependencies 
 node_modules/
 api/node_modules/
 ui/node_modules/
 
-# ── Build outputs ──────────────────────────────────────────────
+#  Build outputs 
 api/dist/
 ui/dist/
 
-# ── Angular cache ──────────────────────────────────────────────
+#  Angular cache 
 ui/.angular/
 
-# ── Environment / secrets ──────────────────────────────────────
+#  Environment / secrets 
 .env
 api/.env
 
-# ── Uploads (user files — logos, signatures) ───────────────────
+#  Uploads (user files — logos, signatures) 
 api/uploads/
 
-# ── Logs ───────────────────────────────────────────────────────
+#  Logs 
 *.log
 npm-debug.log*
 
-# ── OS ─────────────────────────────────────────────────────────
+#  OS 
 .DS_Store
 Thumbs.db
 
-# ── IDEs ───────────────────────────────────────────────────────
+#  IDEs 
 .vscode/
 .idea/
 *.suo

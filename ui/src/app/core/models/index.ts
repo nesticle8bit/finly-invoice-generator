@@ -61,7 +61,15 @@ export interface Invoice {
   client_postal_code?: string;
   client_vat?: string;
   items: InvoiceItem[];
+  sent_at?: string;
+  is_template?: boolean;
   created_at: string;
+}
+
+export interface MonthStat {
+  month: string;
+  revenue: number;
+  count: number;
 }
 
 export interface DashboardStats {

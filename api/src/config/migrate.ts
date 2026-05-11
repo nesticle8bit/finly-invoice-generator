@@ -112,6 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_share_tokens_invoice_id ON invoice_share_tokens(i
 
 const alterations = `
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT NULL;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sent_at TIMESTAMP DEFAULT NULL;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS is_template BOOLEAN DEFAULT FALSE;
 `;
 
 async function migrate() {

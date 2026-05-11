@@ -1,67 +1,116 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { DatePipe, DecimalPipe, NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTooltip } from '@angular/material/tooltip';
 import { InvoiceService } from '../../../core/services/invoice.service';
+import { ClientService } from '../../../core/services/client.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { Invoice } from '../../../core/models';
+import { Client, Invoice } from '../../../core/models';
 
 @Component({
   selector: 'app-invoice-list',
   standalone: true,
   imports: [RouterLink, DatePipe, DecimalPipe, NgClass, FormsModule, MatTooltip],
+  styles: [`
+    .filter-input { @apply w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-all; }
+  `],
   template: `
     <div class="p-8">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-2xl font-bold text-slate-900">Invoices</h1>
-          <p class="text-slate-500 text-sm mt-0.5">{{ total() }} invoice(s) total</p>
+          <h1 class="text-2xl font-bold text-slate-900">{{ showTemplates() ? 'Templates' : 'Invoices' }}</h1>
+          <p class="text-slate-500 text-sm mt-0.5">{{ total() }} {{ showTemplates() ? 'template(s)' : 'invoice(s)' }}</p>
         </div>
-        <a routerLink="/invoices/new" class="btn-primary">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          New Invoice
-        </a>
+        <div class="flex items-center gap-2">
+          <button (click)="exportCSV()" class="btn-secondary gap-2 text-sm" matTooltip="Export visible invoices as CSV">
+            <i class="ti ti-table-export text-base"></i>
+            Export CSV
+          </button>
+          <button
+            (click)="toggleTemplates()"
+            class="btn-secondary gap-2 text-sm"
+            [class.bg-primary-50]="showTemplates()"
+            [class.text-primary-700]="showTemplates()"
+            [class.border-primary-300]="showTemplates()"
+          >
+            <i class="ti ti-template text-base"></i>
+            Templates
+          </button>
+          <a routerLink="/invoices/new" class="btn-primary gap-2">
+            <i class="ti ti-plus text-base"></i>
+            New Invoice
+          </a>
+        </div>
       </div>
 
       <!-- Filters -->
-      <div class="card p-4 mb-5 flex flex-col sm:flex-row gap-3">
-        <div class="relative flex-1">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-          <input
-            type="text"
-            [(ngModel)]="search"
-            (ngModelChange)="onSearch()"
-            placeholder="Search by invoice # or client..."
-            class="input-field pl-9"
-          >
+      <div class="card p-4 mb-5 space-y-3">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <!-- Search -->
+          <div class="relative flex-1">
+            <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+            <input
+              type="text"
+              [(ngModel)]="search"
+              (ngModelChange)="onSearch()"
+              placeholder="Search invoice # or client..."
+              class="input-field pl-9"
+            >
+          </div>
+          <!-- Client filter -->
+          <div class="relative">
+            <i class="ti ti-users absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+            <select [(ngModel)]="selectedClientId" (ngModelChange)="load()" class="input-field pl-9 pr-8 w-48">
+              <option value="">All clients</option>
+              @for (c of clients(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+          <!-- Date range -->
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <i class="ti ti-calendar absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+              <input type="date" [(ngModel)]="dateFrom" (ngModelChange)="load()" class="input-field pl-9 w-40 text-sm" placeholder="From">
+            </div>
+            <span class="text-slate-400 text-sm">→</span>
+            <div class="relative">
+              <i class="ti ti-calendar absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base pointer-events-none"></i>
+              <input type="date" [(ngModel)]="dateTo" (ngModelChange)="load()" class="input-field pl-9 w-40 text-sm" placeholder="To">
+            </div>
+            @if (dateFrom || dateTo) {
+              <button (click)="clearDates()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <i class="ti ti-x text-base"></i>
+              </button>
+            }
+          </div>
         </div>
-        <div class="flex gap-2">
-          @for (s of statuses; track s.value) {
-            <button
-              (click)="filterStatus(s.value)"
-              class="px-4 py-2 text-xs font-semibold rounded-lg border transition-all duration-200"
-              [class.bg-primary-600]="selectedStatus() === s.value"
-              [class.text-white]="selectedStatus() === s.value"
-              [class.border-primary-600]="selectedStatus() === s.value"
-              [class.bg-white]="selectedStatus() !== s.value"
-              [class.text-slate-600]="selectedStatus() !== s.value"
-              [class.border-slate-200]="selectedStatus() !== s.value"
-            >{{ s.label }}</button>
-          }
-        </div>
+        <!-- Status pills -->
+        @if (!showTemplates()) {
+          <div class="flex gap-2">
+            @for (s of statuses; track s.value) {
+              <button
+                (click)="filterStatus(s.value)"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-150"
+                [class.bg-primary-600]="selectedStatus() === s.value"
+                [class.text-white]="selectedStatus() === s.value"
+                [class.border-primary-600]="selectedStatus() === s.value"
+                [class.bg-white]="selectedStatus() !== s.value"
+                [class.text-slate-600]="selectedStatus() !== s.value"
+                [class.border-slate-200]="selectedStatus() !== s.value"
+              >{{ s.label }}</button>
+            }
+          </div>
+        }
       </div>
 
       <!-- Table -->
       <div class="card overflow-hidden">
         @if (loading()) {
           <div class="flex items-center justify-center h-48">
-            <div class="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+            <i class="ti ti-loader-2 text-3xl text-primary-600 animate-spin"></i>
           </div>
         } @else {
           <table class="w-full">
@@ -79,7 +128,12 @@ import { Invoice } from '../../../core/models';
               @for (inv of invoices(); track inv.id) {
                 <tr class="hover:bg-slate-50/60 transition-colors group">
                   <td class="px-6 py-3.5">
-                    <span class="text-sm font-bold text-primary-600">#{{ inv.invoice_number }}</span>
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-bold text-primary-600">#{{ inv.invoice_number }}</span>
+                      @if (inv.is_template) {
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wide">Template</span>
+                      }
+                    </div>
                   </td>
                   <td class="px-6 py-3.5">
                     <span class="text-sm text-slate-700">{{ inv.client_name || '—' }}</span>
@@ -100,25 +154,19 @@ import { Invoice } from '../../../core/models';
                   <td class="px-6 py-3.5">
                     <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <a [routerLink]="['/invoices', inv.id, 'preview']" class="btn-ghost p-1.5" matTooltip="Preview">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                        </svg>
+                        <i class="ti ti-eye text-base"></i>
                       </a>
                       <a [routerLink]="['/invoices', inv.id, 'edit']" class="btn-ghost p-1.5" matTooltip="Edit">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                        </svg>
+                        <i class="ti ti-pencil text-base"></i>
                       </a>
+                      <button (click)="duplicateInvoice(inv)" class="btn-ghost p-1.5" matTooltip="{{ inv.is_template ? 'Generate from template' : 'Duplicate' }}">
+                        <i class="ti ti-copy text-base"></i>
+                      </button>
                       <button (click)="downloadPDF(inv)" class="btn-ghost p-1.5" matTooltip="Download PDF">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
+                        <i class="ti ti-file-download text-base"></i>
                       </button>
                       <button (click)="deleteInvoice(inv)" class="btn-ghost p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50" matTooltip="Delete">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
+                        <i class="ti ti-trash text-base"></i>
                       </button>
                     </div>
                   </td>
@@ -126,11 +174,11 @@ import { Invoice } from '../../../core/models';
               } @empty {
                 <tr>
                   <td colspan="6" class="text-center py-16 text-slate-400">
-                    <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    <p class="font-medium">No invoices found</p>
-                    <a routerLink="/invoices/new" class="text-primary-600 text-sm font-semibold hover:underline mt-1 inline-block">Create your first invoice →</a>
+                    <i class="ti ti-file-off text-5xl text-slate-300 block mb-3"></i>
+                    <p class="font-medium">{{ showTemplates() ? 'No templates yet' : 'No invoices found' }}</p>
+                    <a routerLink="/invoices/new" class="text-primary-600 text-sm font-semibold hover:underline mt-1 inline-block">
+                      {{ showTemplates() ? 'Create an invoice and save as template →' : 'Create your first invoice →' }}
+                    </a>
                   </td>
                 </tr>
               }
@@ -143,13 +191,20 @@ import { Invoice } from '../../../core/models';
 })
 export class InvoiceListComponent implements OnInit {
   private invoiceService = inject(InvoiceService);
+  private clientService = inject(ClientService);
+  private router = inject(Router);
   private toast = inject(ToastService);
 
   invoices = signal<Invoice[]>([]);
+  clients = signal<Client[]>([]);
   loading = signal(true);
   total = signal(0);
   search = '';
   selectedStatus = signal('');
+  showTemplates = signal(false);
+  selectedClientId = '';
+  dateFrom = '';
+  dateTo = '';
 
   statuses = [
     { label: 'All', value: '' },
@@ -161,14 +216,19 @@ export class InvoiceListComponent implements OnInit {
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
+    this.clientService.list().subscribe(clients => this.clients.set(clients));
     this.load();
   }
 
   load(): void {
     this.loading.set(true);
-    const params: Record<string, string> = {};
+    const params: Record<string, any> = {};
     if (this.selectedStatus()) params['status'] = this.selectedStatus();
     if (this.search) params['search'] = this.search;
+    if (this.selectedClientId) params['client_id'] = parseInt(this.selectedClientId);
+    if (this.dateFrom) params['date_from'] = this.dateFrom;
+    if (this.dateTo) params['date_to'] = this.dateTo;
+    if (this.showTemplates()) params['is_template'] = true;
 
     this.invoiceService.list(params).subscribe({
       next: (res) => {
@@ -188,6 +248,43 @@ export class InvoiceListComponent implements OnInit {
   filterStatus(status: string): void {
     this.selectedStatus.set(status);
     this.load();
+  }
+
+  toggleTemplates(): void {
+    this.showTemplates.update(v => !v);
+    this.selectedStatus.set('');
+    this.load();
+  }
+
+  clearDates(): void {
+    this.dateFrom = '';
+    this.dateTo = '';
+    this.load();
+  }
+
+  exportCSV(): void {
+    const rows = [['Number', 'Client', 'Date', 'Status', 'Total']];
+    for (const inv of this.invoices()) {
+      rows.push([inv.invoice_number, inv.client_name || '', inv.date, inv.status, String(inv.total)]);
+    }
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invoices-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  duplicateInvoice(inv: Invoice): void {
+    this.invoiceService.duplicate(inv.id).subscribe({
+      next: (newInv) => {
+        this.toast.success(inv.is_template ? 'Invoice created from template' : 'Invoice duplicated');
+        this.router.navigate(['/invoices', newInv.id, 'edit']);
+      },
+      error: () => this.toast.error('Failed to duplicate invoice'),
+    });
   }
 
   downloadPDF(inv: Invoice): void {

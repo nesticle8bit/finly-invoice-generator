@@ -1,6 +1,6 @@
 services:
 
-  # ── API (Express + Puppeteer) ──────────────────────────────────
+  #  API (Express + Puppeteer) 
   api:
     build:
       context: ./api
@@ -19,7 +19,7 @@ services:
     volumes:
       - uploads:/app/uploads
 
-  # ── UI (Angular → nginx) ───────────────────────────────────────
+  #  UI (Angular → nginx) 
   ui:
     build:
       context: ./ui

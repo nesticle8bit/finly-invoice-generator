@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { DatePipe, DecimalPipe, NgClass } from "@angular/common";
 import { InvoiceService } from "../../core/services/invoice.service";
-import { DashboardStats } from "../../core/models";
+import { DashboardStats, MonthStat } from "../../core/models";
 
 @Component({
   selector: "app-dashboard",
@@ -143,6 +143,34 @@ import { DashboardStats } from "../../core/models";
           </div>
         }
 
+        <!-- Monthly Revenue Chart -->
+        @if (monthlyStats().length > 0) {
+          <div class="card p-6 mb-6">
+            <div class="flex items-center justify-between mb-5">
+              <h2 class="font-semibold text-slate-900 text-sm">Monthly Revenue</h2>
+              <span class="text-xs text-slate-400">Last 12 months</span>
+            </div>
+            <div class="space-y-2.5">
+              @for (m of monthlyStats(); track m.month) {
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-slate-400 w-20 shrink-0 text-right">{{ m.month }}</span>
+                  <div class="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden">
+                    <div
+                      class="h-full bg-primary-500 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                      [style.width.%]="maxMonthRevenue() > 0 ? (+m.revenue / maxMonthRevenue()) * 100 : 0"
+                    >
+                      @if (+m.revenue / maxMonthRevenue() > 0.18) {
+                        <span class="text-[10px] font-bold text-white">€{{ +m.revenue | number:'1.0-0' }}</span>
+                      }
+                    </div>
+                  </div>
+                  <span class="text-xs font-semibold text-slate-700 w-20 shrink-0">€{{ +m.revenue | number:'1.0-0' }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
         <!-- Bottom: Recent + Quick Actions -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Recent Invoices -->
@@ -262,8 +290,13 @@ export class DashboardComponent implements OnInit {
   private invoiceService = inject(InvoiceService);
 
   stats = signal<DashboardStats | null>(null);
+  monthlyStats = signal<MonthStat[]>([]);
   loading = signal(true);
   today = new Date();
+
+  maxMonthRevenue(): number {
+    return Math.max(...this.monthlyStats().map(m => +m.revenue), 1);
+  }
 
   monthDelta(): number | null {
     const s = this.stats();
@@ -273,11 +306,11 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.invoiceService.getStats().subscribe({
-      next: (s) => {
-        this.stats.set(s);
-        this.loading.set(false);
-      },
+      next: (s) => { this.stats.set(s); this.loading.set(false); },
       error: () => this.loading.set(false),
+    });
+    this.invoiceService.getMonthlyStats().subscribe({
+      next: (m) => this.monthlyStats.set(m),
     });
   }
 }

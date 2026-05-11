@@ -4,13 +4,13 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { generateInvoicePDF } from '../services/pdf.service';
 
 export async function listInvoices(req: AuthRequest, res: Response): Promise<void> {
-  const { status, search, page = '1', limit = '20' } = req.query;
+  const { status, search, page = '1', limit = '20', client_id, date_from, date_to, is_template } = req.query;
   const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
   try {
     let sql = `
       SELECT i.id, i.invoice_number, i.date, i.status, i.total, i.created_at,
-             c.name as client_name
+             i.sent_at, i.is_template, c.name as client_name
       FROM invoices i
       LEFT JOIN clients c ON c.id = i.client_id
       WHERE i.user_id = $1
@@ -21,6 +21,26 @@ export async function listInvoices(req: AuthRequest, res: Response): Promise<voi
     if (status) {
       sql += ` AND i.status = $${paramIdx++}`;
       params.push(status);
+    }
+
+    if (is_template !== undefined) {
+      sql += ` AND i.is_template = $${paramIdx++}`;
+      params.push(is_template === 'true');
+    }
+
+    if (client_id) {
+      sql += ` AND i.client_id = $${paramIdx++}`;
+      params.push(parseInt(client_id as string));
+    }
+
+    if (date_from) {
+      sql += ` AND i.date >= $${paramIdx++}`;
+      params.push(date_from);
+    }
+
+    if (date_to) {
+      sql += ` AND i.date <= $${paramIdx++}`;
+      params.push(date_to);
     }
 
     if (search) {
@@ -160,7 +180,7 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
 
 export async function updateInvoice(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const { client_id, invoice_number, date, status, notes, period_start, period_end, items } = req.body;
+  const { client_id, invoice_number, date, status, notes, period_start, period_end, items, is_template } = req.body;
 
   try {
     // Check ownership
@@ -176,6 +196,11 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
       ? items.reduce((sum: number, item: { hours: number; rate: number }) => sum + item.hours * item.rate, 0)
       : undefined;
 
+    // Set sent_at when transitioning to 'sent' for the first time
+    const sentAtClause = status === 'sent'
+      ? `, sent_at = COALESCE(sent_at, NOW())`
+      : '';
+
     await query(
       `UPDATE invoices SET
          client_id = COALESCE($1, client_id),
@@ -187,9 +212,10 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
          period_end = COALESCE($7, period_end),
          total = COALESCE($8, total),
          subtotal = COALESCE($8, subtotal),
-         updated_at = NOW()
+         is_template = COALESCE($10, is_template),
+         updated_at = NOW()${sentAtClause}
        WHERE id = $9`,
-      [client_id, invoice_number, date, status, notes, period_start, period_end, total, id]
+      [client_id, invoice_number, date, status, notes, period_start, period_end, total, id, is_template ?? null]
     );
 
     if (items) {
@@ -316,6 +342,72 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
     res.json({ ...stats.rows[0], recent_invoices: recent.rows });
   } catch (err) {
     console.error('Dashboard stats error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function duplicateInvoice(req: AuthRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  try {
+    const src = await query(
+      'SELECT * FROM invoices WHERE id = $1 AND user_id = $2',
+      [id, req.userId]
+    );
+    if (src.rows.length === 0) { res.status(404).json({ error: 'Invoice not found' }); return; }
+    const inv = src.rows[0];
+
+    const nextNum = await query(
+      `SELECT LPAD((COALESCE(MAX(CAST(invoice_number AS INTEGER)), 0) + 1)::text, 4, '0') as num
+       FROM invoices WHERE user_id = $1 AND invoice_number ~ '^[0-9]+$'`,
+      [req.userId]
+    );
+    const newNumber = nextNum.rows[0].num;
+
+    await query('BEGIN');
+    const newInv = await query(
+      `INSERT INTO invoices (user_id, client_id, invoice_number, date, status, total, subtotal, notes, period_start, period_end)
+       VALUES ($1, $2, $3, NOW(), 'draft', $4, $5, $6, $7, $8) RETURNING *`,
+      [req.userId, inv.client_id, newNumber, inv.total, inv.subtotal, inv.notes, inv.period_start, inv.period_end]
+    );
+    const items = await query('SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order', [id]);
+    for (let i = 0; i < items.rows.length; i++) {
+      const it = items.rows[i];
+      await query(
+        'INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order) VALUES ($1,$2,$3,$4,$5,$6)',
+        [newInv.rows[0].id, it.description, it.hours, it.rate, it.amount, i]
+      );
+    }
+    await query('COMMIT');
+
+    const full = await query(
+      `SELECT i.*, c.name as client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = $1`,
+      [newInv.rows[0].id]
+    );
+    res.status(201).json(full.rows[0]);
+  } catch (err) {
+    await query('ROLLBACK');
+    console.error('Duplicate invoice error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function getMonthlyStats(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const result = await query(
+      `SELECT to_char(date_trunc('month', date), 'Mon YYYY') as month,
+              date_trunc('month', date) as month_date,
+              COALESCE(SUM(total), 0) as revenue,
+              COUNT(*) as count
+       FROM invoices
+       WHERE user_id = $1
+       GROUP BY date_trunc('month', date)
+       ORDER BY date_trunc('month', date) DESC
+       LIMIT 12`,
+      [req.userId]
+    );
+    res.json(result.rows.reverse());
+  } catch (err) {
+    console.error('Monthly stats error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

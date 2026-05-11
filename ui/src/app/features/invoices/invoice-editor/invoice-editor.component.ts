@@ -1,7 +1,8 @@
 import { Component, inject, OnDestroy, OnInit, signal } from "@angular/core";
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { DecimalPipe, NgClass } from "@angular/common";
+import { DecimalPipe } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 import { InvoiceService } from "../../../core/services/invoice.service";
 import { ClientService } from "../../../core/services/client.service";
 import { ProfileService } from "../../../core/services/profile.service";
@@ -12,7 +13,7 @@ import { merge } from "rxjs";
 @Component({
   selector: "app-invoice-editor",
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, NgClass, DecimalPipe],
+  imports: [ReactiveFormsModule, FormsModule, RouterLink, DecimalPipe],
   template: `
     <div class="p-8 mx-auto">
       <!-- Header -->
@@ -80,7 +81,13 @@ import { merge } from "rxjs";
         <div class="card p-6 mb-5">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Task Items</h2>
-            <button type="button" (click)="addItem()" class="btn-secondary text-xs py-1.5 px-3">+ Add Item</button>
+            <div class="flex items-center gap-2">
+              <button type="button" (click)="showImportModal.set(true)" class="btn-secondary text-xs py-1.5 px-3 gap-1.5">
+                <i class="ti ti-table-import text-sm"></i>
+                Import tasks
+              </button>
+              <button type="button" (click)="addItem()" class="btn-secondary text-xs py-1.5 px-3">+ Add Item</button>
+            </div>
           </div>
 
           <!-- Table header -->
@@ -133,6 +140,18 @@ import { merge } from "rxjs";
           <textarea formControlName="notes" rows="3" placeholder="Invoice notes..." class="input-field resize-none"></textarea>
         </div>
 
+        <!-- Template toggle -->
+        <div class="card p-4 mb-6 flex items-center gap-3">
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" formControlName="is_template" class="sr-only peer">
+            <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:bg-primary-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-4"></div>
+          </label>
+          <div>
+            <p class="text-sm font-semibold text-slate-700">Save as template</p>
+            <p class="text-xs text-slate-400">Reuse this invoice as a starting point for future invoices.</p>
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="flex items-center justify-end gap-3">
           @if (autosaved()) {
@@ -154,6 +173,39 @@ import { merge } from "rxjs";
         </div>
       </form>
     </div>
+
+    <!-- Bulk Import Modal -->
+    @if (showImportModal()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" (click)="showImportModal.set(false)"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div>
+              <h3 class="text-base font-bold text-slate-800">Import Tasks</h3>
+              <p class="text-xs text-slate-500 mt-0.5">One task per line: <span class="font-mono">Description | hours | rate</span> (rate optional)</p>
+            </div>
+            <button type="button" (click)="showImportModal.set(false)" class="text-slate-400 hover:text-slate-600">
+              <i class="ti ti-x text-lg"></i>
+            </button>
+          </div>
+          <div class="px-6 py-5 space-y-4">
+            <textarea
+              [(ngModel)]="importText"
+              rows="8"
+              placeholder="Fix login bug | 2 | 25&#10;Update dashboard UI | 4&#10;Code review | 1.5 | 30"
+              class="input-field resize-none font-mono text-xs"
+            ></textarea>
+            <div class="flex justify-end gap-2">
+              <button type="button" (click)="showImportModal.set(false)" class="btn-secondary text-sm">Cancel</button>
+              <button type="button" (click)="importTasks()" class="btn-primary text-sm gap-1.5">
+                <i class="ti ti-table-import text-base"></i>
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class InvoiceEditorComponent implements OnInit, OnDestroy {
@@ -170,6 +222,8 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
   isEdit = signal(false);
   saving = signal(false);
   autosaved = signal(false);
+  showImportModal = signal(false);
+  importText = '';
   invoiceId: number | null = null;
   private autosaveTimer: ReturnType<typeof setInterval> | null = null;
   private autosaveHideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -182,6 +236,7 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
     period_start: [""],
     period_end: [""],
     notes: [""],
+    is_template: [false],
     items: this.fb.array([]),
   });
 
@@ -242,6 +297,7 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
           period_start: inv.period_start?.split("T")[0] || "",
           period_end: inv.period_end?.split("T")[0] || "",
           notes: inv.notes,
+          is_template: inv.is_template ?? false,
         });
         // Add items
         this.itemsArray.clear();
@@ -328,6 +384,20 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
       const v = ctrl.value;
       return sum + (v.hours || 0) * (v.rate || 0);
     }, 0);
+  }
+
+  importTasks(): void {
+    const defaultRate = this.profile()?.default_rate || 25;
+    const lines = this.importText.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const parts = line.split('|').map(p => p.trim());
+      const description = parts[0] || '';
+      const hours = parseFloat(parts[1] || '0') || 0;
+      const rate = parseFloat(parts[2] || '') || defaultRate;
+      if (description) this.itemsArray.push(this.createItemGroup(description, hours, rate));
+    }
+    this.importText = '';
+    this.showImportModal.set(false);
   }
 
   onSubmit(): void {
