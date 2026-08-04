@@ -1,157 +1,21 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
+import { Subject, debounceTime, groupBy, mergeMap, takeUntil } from 'rxjs';
 import { ShareService, SharedInvoice, SharedItem } from '../../core/services/share.service';
+
+type RowStatus = 'pending' | 'saving' | 'saved' | 'error';
+
+const WP_PATTERN = /^\d+$/;
 
 @Component({
   selector: 'app-share',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
-  template: `
-    <div class="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4">
-
-      <!-- Logo / Brand -->
-      <div class="mb-8 text-center">
-        <div class="text-4xl font-black text-primary-600 tracking-tight">Invoice</div>
-        <p class="text-slate-500 text-sm mt-1">Work Package Entry</p>
-      </div>
-
-      <!-- Password gate -->
-      @if (!invoice()) {
-        <div class="w-full max-w-sm">
-          <div class="card p-8">
-            <h2 class="text-lg font-bold text-slate-800 mb-1">Protected Invoice</h2>
-            <p class="text-slate-500 text-sm mb-6">Enter the password to access and update Work Package numbers.</p>
-
-            @if (error()) {
-              <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                {{ error() }}
-              </div>
-            }
-
-            <form (ngSubmit)="unlock()" class="space-y-4">
-              <div>
-                <label class="label">Password</label>
-                <input
-                  type="password"
-                  [(ngModel)]="password"
-                  name="password"
-                  class="input-field"
-                  placeholder="Enter password"
-                  autocomplete="current-password"
-                  required
-                />
-              </div>
-              <button type="submit" [disabled]="loading() || !password" class="btn-primary w-full justify-center">
-                @if (loading()) {
-                  <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                }
-                Access Invoice
-              </button>
-            </form>
-          </div>
-        </div>
-      }
-
-      <!-- Invoice editor -->
-      @if (invoice()) {
-        <div class="w-full max-w-3xl">
-
-          <!-- Header -->
-          <div class="card p-6 mb-6">
-            <div class="flex justify-between items-start">
-              <div>
-                <h2 class="text-xl font-bold text-slate-800">Invoice #{{ invoice()!.invoice_number }}</h2>
-                <p class="text-slate-500 text-sm mt-0.5">{{ invoice()!.date }}</p>
-              </div>
-              <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                Draft — WP Entry Mode
-              </span>
-            </div>
-          </div>
-
-          <!-- Save banner -->
-          @if (saved()) {
-            <div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 flex items-center gap-2">
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-              Work Package numbers saved successfully!
-            </div>
-          }
-
-          @if (saveError()) {
-            <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {{ saveError() }}
-            </div>
-          }
-
-          <!-- Items table -->
-          <div class="card overflow-hidden mb-6">
-            <table class="w-full">
-              <thead class="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Task Description</th>
-                  <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Hours</th>
-                  <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-40">WP Number</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100">
-                @for (item of editableItems(); track item.id; let i = $index) {
-                  <tr [class.bg-slate-50]="i % 2 === 0">
-                    <td class="px-4 py-3 text-sm text-slate-700">{{ item.description_clean }}</td>
-                    <td class="px-4 py-3 text-sm text-slate-600 text-center">{{ item.hours }}</td>
-                    <td class="px-4 py-3 text-center">
-                      <input
-                        type="text"
-                        [(ngModel)]="item.wp_number"
-                        [name]="'wp_' + item.id"
-                        class="w-full text-center text-sm border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="e.g. 3097"
-                      />
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Total row -->
-          <div class="flex justify-end mb-6">
-            <div class="card px-6 py-3 flex items-center gap-4">
-              <span class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Total</span>
-              <span class="text-2xl font-black text-primary-600">
-                {{ getTotalAmount() | number:'1.0-2' }} €
-              </span>
-            </div>
-          </div>
-
-          <!-- Save button -->
-          <div class="flex justify-end">
-            <button (click)="saveWP()" [disabled]="saving()" class="btn-primary">
-              @if (saving()) {
-                <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              } @else {
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-              }
-              Save Work Packages
-            </button>
-          </div>
-
-          <!-- Footer note -->
-          <p class="text-center text-slate-400 text-xs mt-8">
-            You can only edit the WP number. Other fields are read-only.
-          </p>
-        </div>
-      }
-
-    </div>
-  `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [FormsModule],
+  templateUrl: './share.component.html',
 })
-export class ShareComponent implements OnInit {
+export class ShareComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private shareService = inject(ShareService);
 
@@ -163,12 +27,55 @@ export class ShareComponent implements OnInit {
 
   loading = signal(false);
   error = signal('');
-  saving = signal(false);
-  saved = signal(false);
-  saveError = signal('');
+  sessionExpired = signal(false);
+
+  /** Per-row autosave state, keyed by item id. */
+  rowStatus = signal<Record<number, RowStatus | undefined>>({});
+  /** Per-row message shown instead of the status line (validation errors). */
+  rowError = signal<Record<number, string | undefined>>({});
+
+  globalStatus = computed<'idle' | 'saving' | 'error' | 'clean'>(() => {
+    const statuses = Object.values(this.rowStatus());
+    if (statuses.some((s) => s === 'saving' || s === 'pending')) return 'saving';
+    if (statuses.some((s) => s === 'error')) return 'error';
+    if (statuses.some((s) => s === 'saved')) return 'clean';
+    return 'idle';
+  });
+
+  private sessionToken = '';
+  private wpChange$ = new Subject<number>();
+  private destroy$ = new Subject<void>();
+  /** Last value persisted per item id — avoids saving when nothing changed. */
+  private lastSaved = new Map<number, string | null>();
+  private savedTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
   ngOnInit(): void {
     this.token = this.route.snapshot.paramMap.get('token') ?? '';
+
+    // Debounce per row: editing row B must never cancel a pending save for row A.
+    this.wpChange$
+      .pipe(
+        groupBy((id) => id),
+        mergeMap((group) => group.pipe(debounceTime(700))),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((id) => this.saveRow(id));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.savedTimers.forEach((t) => clearTimeout(t));
+  }
+
+  /** Warn before leaving while an autosave is still in flight or queued. */
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    const statuses = Object.values(this.rowStatus());
+    if (statuses.some((s) => s === 'pending' || s === 'saving' || s === 'error')) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
   }
 
   unlock(): void {
@@ -178,8 +85,13 @@ export class ShareComponent implements OnInit {
     this.shareService.accessInvoice(this.token, this.password).subscribe({
       next: (inv) => {
         this.invoice.set(inv);
+        this.sessionToken = inv.session_token;
         this.editableItems.set(inv.items.map((item) => ({ ...item })));
+        this.lastSaved.clear();
+        inv.items.forEach((item) => this.lastSaved.set(item.id, this.normalize(item.wp_number)));
         this.loading.set(false);
+        this.password = '';
+        this.focusFirstEmpty();
       },
       error: (err) => {
         const msg = err?.error?.error || 'Incorrect password or expired link.';
@@ -189,31 +101,85 @@ export class ShareComponent implements OnInit {
     });
   }
 
-  saveWP(): void {
-    this.saving.set(true);
-    this.saved.set(false);
-    this.saveError.set('');
+  onWpChange(itemId: number): void {
+    this.setRowStatus(itemId, 'pending');
+    this.wpChange$.next(itemId);
+  }
 
-    const items = this.editableItems().map((item) => ({
-      id: item.id,
-      wp_number: item.wp_number ?? null,
-    }));
+  /** Save immediately (blur / Enter) instead of waiting for the debounce. */
+  flushWp(itemId: number): void {
+    this.saveRow(itemId);
+  }
 
-    this.shareService.updateWP(this.token, this.password, items).subscribe({
+  isRowInvalid(itemId: number): boolean {
+    return !!this.rowError()[itemId] || this.rowStatus()[itemId] === 'error';
+  }
+
+  saveRow(itemId: number): void {
+    const item = this.editableItems().find((i) => i.id === itemId);
+    if (!item) return;
+
+    const value = this.normalize(item.wp_number);
+
+    if (value !== null && !WP_PATTERN.test(value)) {
+      this.setRowError(itemId, 'Digits only');
+      this.setRowStatus(itemId, undefined);
+      return;
+    }
+    this.setRowError(itemId, undefined);
+
+    if (this.lastSaved.get(itemId) === value) {
+      if (this.rowStatus()[itemId] === 'pending') this.setRowStatus(itemId, undefined);
+      return;
+    }
+
+    if (this.sessionExpired()) return;
+
+    this.setRowStatus(itemId, 'saving');
+
+    this.shareService.updateWP(this.token, this.sessionToken, [{ id: itemId, wp_number: value }]).subscribe({
       next: () => {
-        this.saving.set(false);
-        this.saved.set(true);
-        setTimeout(() => this.saved.set(false), 4000);
+        this.lastSaved.set(itemId, value);
+        this.setRowStatus(itemId, 'saved');
+        const timer = setTimeout(() => this.clearIfStill(itemId, 'saved'), 2500);
+        this.savedTimers.set(itemId, timer);
       },
       error: (err) => {
-        const msg = err?.error?.error || 'Failed to save. Please try again.';
-        this.saveError.set(msg);
-        this.saving.set(false);
+        if (err?.status === 401) this.sessionExpired.set(true);
+        this.setRowStatus(itemId, 'error');
       },
     });
   }
 
-  getTotalAmount(): number {
-    return (this.invoice()?.items ?? []).reduce((sum, i) => sum + Number(i.amount), 0);
+  private normalize(value: string | null | undefined): string | null {
+    const trimmed = (value ?? '').trim();
+    return trimmed === '' ? null : trimmed;
+  }
+
+  private clearIfStill(itemId: number, expected: RowStatus): void {
+    if (this.rowStatus()[itemId] === expected) this.setRowStatus(itemId, undefined);
+  }
+
+  private setRowStatus(itemId: number, status: RowStatus | undefined): void {
+    const existing = this.savedTimers.get(itemId);
+    if (existing) {
+      clearTimeout(existing);
+      this.savedTimers.delete(itemId);
+    }
+    this.rowStatus.update((map) => ({ ...map, [itemId]: status }));
+  }
+
+  private setRowError(itemId: number, message: string | undefined): void {
+    this.rowError.update((map) => ({ ...map, [itemId]: message }));
+  }
+
+  /** Jump straight to the first row still missing a WP — this view is bulk data entry. */
+  private focusFirstEmpty(): void {
+    setTimeout(() => {
+      const first = this.editableItems().find((i) => !this.normalize(i.wp_number));
+      if (!first) return;
+      const input = document.querySelector<HTMLInputElement>(`[data-wp-input="${first.id}"]`);
+      input?.focus();
+    });
   }
 }

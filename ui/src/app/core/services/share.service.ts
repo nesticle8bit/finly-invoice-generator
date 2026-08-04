@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -18,6 +18,8 @@ export interface SharedInvoice {
   invoice_number: string;
   date: string;
   items: SharedItem[];
+  /** Short-lived token so autosave doesn't resend the password. */
+  session_token: string;
 }
 
 export interface ShareInfo {
@@ -29,9 +31,9 @@ export interface ShareInfo {
 
 @Injectable({ providedIn: 'root' })
 export class ShareService {
-  private readonly base = environment.apiUrl;
+  private http = inject(HttpClient);
 
-  constructor(private http: HttpClient) {}
+  private readonly base = environment.apiUrl;
 
   createLink(invoiceId: number, password: string, expiresInDays?: number): Observable<{ token: string; expires_at: string }> {
     return this.http.post<{ token: string; expires_at: string }>(
@@ -53,7 +55,14 @@ export class ShareService {
     return this.http.post<SharedInvoice>(`${this.base}/public/share/${token}`, { password });
   }
 
-  updateWP(token: string, password: string, items: { id: number; wp_number: string | null }[]): Observable<{ message: string }> {
-    return this.http.put<{ message: string }>(`${this.base}/public/share/${token}/wp`, { password, items });
+  updateWP(
+    token: string,
+    sessionToken: string,
+    items: { id: number; wp_number: string | null }[]
+  ): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.base}/public/share/${token}/wp`, {
+      session_token: sessionToken,
+      items,
+    });
   }
 }

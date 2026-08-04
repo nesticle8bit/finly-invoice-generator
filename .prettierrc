@@ -1,0 +1,13 @@
+{
+  "printWidth": 110,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "semi": true,
+  "arrowParens": "always",
+  "overrides": [
+    {
+      "files": "*.html",
+      "options": { "parser": "html", "printWidth": 140 }
+    }
+  ]
+}

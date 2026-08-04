@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { query } from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { env } from '../config/env';
+import { logger } from '../config/logger';
 import path from 'path';
 import fs from 'fs';
 
@@ -24,7 +26,7 @@ export async function getProfile(req: AuthRequest, res: Response): Promise<void>
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Get profile error:', err);
+    logger.error('Get profile error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -64,60 +66,59 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Update profile error:', err);
+    logger.error('Update profile error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/** Best-effort removal — a stale file must never fail the request. */
+function removeUpload(relativePath: string | null | undefined): void {
+  if (!relativePath) return;
+  try {
+    const fullPath = path.join(env.uploadDir, relativePath);
+    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+  } catch (err) {
+    logger.warn('Could not delete previous upload', { relativePath, err });
+  }
+}
+
+async function replaceAsset(
+  req: AuthRequest,
+  res: Response,
+  column: 'logo_path' | 'signature_path',
+  folder: 'logos' | 'signatures'
+): Promise<void> {
+  if (!req.file) {
+    res.status(400).json({ error: 'No file uploaded' });
+    return;
+  }
+
+  const relativePath = `${folder}/${req.file.filename}`;
+
+  try {
+    const old = await query(`SELECT ${column} FROM profiles WHERE user_id = $1`, [req.userId]);
+
+    await query(
+      `UPDATE profiles SET ${column} = $1, updated_at = NOW() WHERE user_id = $2`,
+      [relativePath, req.userId]
+    );
+
+    // Only drop the previous file once the new path is committed.
+    removeUpload(old.rows[0]?.[column]);
+
+    res.json({ [column]: relativePath, url: `/uploads/${relativePath}` });
+  } catch (err) {
+    // The row still points at the old file — the orphan is the one just written.
+    removeUpload(relativePath);
+    logger.error(`Upload ${folder} error`, err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
 
 export async function uploadLogo(req: AuthRequest, res: Response): Promise<void> {
-  if (!req.file) {
-    res.status(400).json({ error: 'No file uploaded' });
-    return;
-  }
-
-  try {
-    // Delete old logo
-    const old = await query('SELECT logo_path FROM profiles WHERE user_id = $1', [req.userId]);
-    if (old.rows[0]?.logo_path) {
-      const oldPath = path.join(process.env.UPLOAD_DIR || 'uploads', old.rows[0].logo_path);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
-
-    const relativePath = `logos/${req.file.filename}`;
-    await query(
-      'UPDATE profiles SET logo_path = $1, updated_at = NOW() WHERE user_id = $2',
-      [relativePath, req.userId]
-    );
-
-    res.json({ logo_path: relativePath, url: `/uploads/${relativePath}` });
-  } catch (err) {
-    console.error('Upload logo error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  await replaceAsset(req, res, 'logo_path', 'logos');
 }
 
 export async function uploadSignature(req: AuthRequest, res: Response): Promise<void> {
-  if (!req.file) {
-    res.status(400).json({ error: 'No file uploaded' });
-    return;
-  }
-
-  try {
-    const old = await query('SELECT signature_path FROM profiles WHERE user_id = $1', [req.userId]);
-    if (old.rows[0]?.signature_path) {
-      const oldPath = path.join(process.env.UPLOAD_DIR || 'uploads', old.rows[0].signature_path);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
-
-    const relativePath = `signatures/${req.file.filename}`;
-    await query(
-      'UPDATE profiles SET signature_path = $1, updated_at = NOW() WHERE user_id = $2',
-      [relativePath, req.userId]
-    );
-
-    res.json({ signature_path: relativePath, url: `/uploads/${relativePath}` });
-  } catch (err) {
-    console.error('Upload signature error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  await replaceAsset(req, res, 'signature_path', 'signatures');
 }

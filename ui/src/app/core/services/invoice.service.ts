@@ -1,14 +1,14 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Invoice, PaginatedResponse, DashboardStats, MonthStat } from '../models';
+import { Invoice, InvoiceInput, PaginatedResponse, DashboardStats, MonthStat } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class InvoiceService {
-  private readonly base = `${environment.apiUrl}/invoices`;
+  private http = inject(HttpClient);
 
-  constructor(private http: HttpClient) {}
+  private readonly base = `${environment.apiUrl}/invoices`;
 
   getStats(): Observable<DashboardStats> {
     return this.http.get<DashboardStats>(`${this.base}/stats`);
@@ -43,11 +43,11 @@ export class InvoiceService {
     return this.http.get<Invoice>(`${this.base}/${id}`);
   }
 
-  create(data: Partial<Invoice>): Observable<Invoice> {
+  create(data: InvoiceInput): Observable<Invoice> {
     return this.http.post<Invoice>(this.base, data);
   }
 
-  update(id: number, data: Partial<Invoice>): Observable<Invoice> {
+  update(id: number, data: InvoiceInput): Observable<Invoice> {
     return this.http.put<Invoice>(`${this.base}/${id}`, data);
   }
 

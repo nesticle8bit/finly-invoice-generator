@@ -1,0 +1,199 @@
+<div class="p-8">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Clients</h1>
+      <p class="text-slate-500 text-sm mt-0.5">{{ clients().length }} client(s)</p>
+    </div>
+    <button (click)="openModal()" class="btn-primary">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      New Client
+    </button>
+  </div>
+
+  <!-- Clients Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    @for (client of clients(); track client.id) {
+      <div class="card p-5 group">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white font-bold text-sm">
+            {{ client.name[0].toUpperCase() }}
+          </div>
+          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button (click)="openModal(client)" class="btn-ghost p-1.5 text-xs">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button (click)="deleteClient(client)" class="btn-ghost p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <h3 class="font-bold text-slate-900 text-sm mb-1">{{ client.name }}</h3>
+        @if (client.vat) {
+          <p class="text-xs text-slate-500 mb-0.5">VAT: {{ client.vat }}</p>
+        }
+        @if (client.address) {
+          <p class="text-xs text-slate-400 leading-relaxed">
+            {{ client.address }}<br />
+            @if (client.postal_code || client.city) {
+              {{ client.postal_code }} {{ client.city }}
+            }
+          </p>
+        }
+        @if (client.email) {
+          <p class="text-xs text-primary-600 mt-2">{{ client.email }}</p>
+        }
+        @if (client.currency) {
+          <span class="inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-accent-50 text-accent-700 border border-accent-200">{{ client.currency }}</span>
+        }
+        @if (outstandingMap()[client.id]) {
+          <span class="inline-flex items-center gap-1 mt-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+            <i class="ti ti-clock text-xs"></i>
+            €{{ outstandingMap()[client.id] | number:'1.0-2' }} outstanding
+          </span>
+        }
+        <button type="button" (click)="openHistory(client)" class="mt-3 text-xs text-primary-600 font-semibold hover:underline block">
+          View invoices →
+        </button>
+      </div>
+    } @empty {
+      <div class="col-span-3 card p-16 text-center text-slate-400">
+        <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <p class="font-medium">No clients yet</p>
+        <button (click)="openModal()" class="text-primary-600 text-sm font-semibold hover:underline mt-1">Add your first client →</button>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Invoice History Panel -->
+@if (historyClient()) {
+  <div class="fixed inset-0 z-50 flex justify-end">
+    <button
+      type="button"
+      class="absolute inset-0 h-full w-full cursor-default bg-black/40 backdrop-blur-sm"
+      aria-label="Close history"
+      (click)="closeHistory()"
+    ></button>
+    <div class="relative bg-white w-full max-w-md h-full overflow-y-auto shadow-2xl flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white">
+        <div>
+          <h3 class="font-bold text-slate-900">{{ historyClient()!.name }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Invoice history</p>
+        </div>
+        <button (click)="closeHistory()" class="text-slate-400 hover:text-slate-600">
+          <i class="ti ti-x text-lg"></i>
+        </button>
+      </div>
+      <div class="p-6 flex-1">
+        @if (historyLoading()) {
+          <div class="flex items-center justify-center h-32">
+            <i class="ti ti-loader-2 text-2xl text-primary-600 animate-spin"></i>
+          </div>
+        } @else if (clientInvoices().length === 0) {
+          <p class="text-sm text-slate-400 text-center mt-8">No invoices for this client.</p>
+        } @else {
+          <div class="space-y-3">
+            @for (inv of clientInvoices(); track inv.id) {
+              <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                <div>
+                  <p class="text-sm font-bold text-primary-600">#{{ inv.invoice_number }}</p>
+                  <p class="text-xs text-slate-400">{{ inv.date | date:'MMM d, y' }}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm font-bold text-slate-900">€{{ inv.total | number:'1.0-2' }}</p>
+                  <span [class]="inv.status === 'paid' ? 'badge-paid' : inv.status === 'sent' ? 'badge-sent' : 'badge-draft'">{{ inv.status }}</span>
+                </div>
+              </div>
+            }
+          </div>
+          <div class="mt-6 pt-4 border-t border-slate-100 space-y-1">
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-500">Total billed</span>
+              <span class="font-bold text-slate-900">€{{ totalBilled() | number:'1.0-2' }}</span>
+            </div>
+            @if (totalOutstanding() > 0) {
+              <div class="flex justify-between text-sm">
+                <span class="text-amber-600">Outstanding</span>
+                <span class="font-bold text-amber-700">€{{ totalOutstanding() | number:'1.0-2' }}</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal -->
+@if (showModal()) {
+  <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-md animate-fade-in">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <h2 class="font-bold text-slate-900">{{ editingClient() ? "Edit Client" : "New Client" }}</h2>
+        <button (click)="closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form [formGroup]="clientForm" (ngSubmit)="onSave()" class="p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label for="clients-company-name" class="label">Company Name *</label>
+            <input id="clients-company-name" type="text" formControlName="name" placeholder="Company GmbH" class="input-field" />
+          </div>
+          <div class="col-span-2">
+            <label for="clients-address" class="label">Address</label>
+            <input id="clients-address" type="text" formControlName="address" placeholder="Address" class="input-field" />
+          </div>
+          <div>
+            <label for="clients-postal-code" class="label">Postal Code</label>
+            <input id="clients-postal-code" type="text" formControlName="postal_code" placeholder="67659" class="input-field" />
+          </div>
+          <div>
+            <label for="clients-city" class="label">City</label>
+            <input id="clients-city" type="text" formControlName="city" placeholder="City" class="input-field" />
+          </div>
+          <div>
+            <label for="clients-country" class="label">Country</label>
+            <input id="clients-country" type="text" formControlName="country" placeholder="Germany" class="input-field" />
+          </div>
+          <div>
+            <label for="clients-vat-number" class="label">VAT Number</label>
+            <input id="clients-vat-number" type="text" formControlName="vat" placeholder="DE100101001" class="input-field" />
+          </div>
+          <div class="col-span-2">
+            <label for="clients-email" class="label">Email</label>
+            <input id="clients-email" type="email" formControlName="email" placeholder="billing@company.com" class="input-field" />
+          </div>
+          <div>
+            <label for="clients-currency" class="label">Currency</label>
+            <select id="clients-currency" formControlName="currency" class="input-field">
+              <option value="">Profile default</option>
+              <option value="EUR">€ Euro (EUR)</option>
+              <option value="USD">$ US Dollar (USD)</option>
+              <option value="COP">COP Colombian Peso</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" (click)="closeModal()" class="btn-secondary">Cancel</button>
+          <button type="submit" [disabled]="clientForm.invalid || saving()" class="btn-primary">
+            {{ saving() ? "Saving..." : editingClient() ? "Update Client" : "Create Client" }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

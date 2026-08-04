@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { randomBytes } from 'crypto';
 import { query } from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { logger } from '../config/logger';
 
 // Only the first registered user (id = 1) can manage invitation codes
 function isAdmin(req: AuthRequest): boolean {
@@ -23,7 +24,7 @@ export async function listCodes(req: AuthRequest, res: Response): Promise<void> 
     );
     res.json(result.rows);
   } catch (err) {
-    console.error('List codes error:', err);
+    logger.error('List codes error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -42,7 +43,7 @@ export async function createCode(req: AuthRequest, res: Response): Promise<void>
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Create code error:', err);
+    logger.error('Create code error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -62,7 +63,7 @@ export async function deleteCode(req: AuthRequest, res: Response): Promise<void>
     }
     res.json({ message: 'Code deleted' });
   } catch (err) {
-    console.error('Delete code error:', err);
+    logger.error('Delete code error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

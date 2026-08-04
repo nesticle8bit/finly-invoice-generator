@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { Browser } from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 
@@ -213,16 +213,50 @@ function buildInvoiceHTML(data: InvoiceData): string {
 </html>`;
 }
 
+/**
+ * Chromium is reused across requests: launching one per PDF costs ~1-2s and
+ * ~150MB. `launching` dedupes concurrent cold starts.
+ */
+let browserInstance: Browser | null = null;
+let launching: Promise<Browser> | null = null;
+
+async function getBrowser(): Promise<Browser> {
+  if (browserInstance?.connected) return browserInstance;
+  if (launching) return launching;
+
+  launching = puppeteer
+    .launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+    })
+    .then((browser) => {
+      browserInstance = browser;
+      // Reset the handle if Chromium dies so the next call relaunches it.
+      browser.on('disconnected', () => {
+        if (browserInstance === browser) browserInstance = null;
+      });
+      return browser;
+    })
+    .finally(() => {
+      launching = null;
+    });
+
+  return launching;
+}
+
+export async function closeBrowser(): Promise<void> {
+  const browser = browserInstance;
+  browserInstance = null;
+  await browser?.close().catch(() => undefined);
+}
+
 export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
   const html = buildInvoiceHTML(data);
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
-  });
+  const browser = await getBrowser();
+  const page = await browser.newPage();
 
   try {
-    const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'load' });
 
     const pdf = await page.pdf({
@@ -233,6 +267,6 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 
     return Buffer.from(pdf);
   } finally {
-    await browser.close();
+    await page.close().catch(() => undefined);
   }
 }

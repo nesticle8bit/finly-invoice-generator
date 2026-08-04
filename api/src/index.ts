@@ -1,52 +1,23 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import path from 'path';
-import dotenv from 'dotenv';
+import app from './app';
+import { env } from './config/env';
+import { pool } from './config/database';
+import { logger } from './config/logger';
+import { closeBrowser } from './services/pdf.service';
 
-import authRoutes from './routes/auth.routes';
-import invoicesRoutes from './routes/invoices.routes';
-import clientsRoutes from './routes/clients.routes';
-import profileRoutes from './routes/profile.routes';
-import shareRoutes from './routes/share.routes';
-import inviteRoutes from './routes/invite.routes';
-
-dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: ['http://localhost:4200', 'http://localhost:4201'], credentials: true }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Static files (uploaded logos/signatures)
-const uploadsDir = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
-app.use('/uploads', express.static(uploadsDir));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/invoices', invoicesRoutes);
-app.use('/api/clients', clientsRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api', shareRoutes);
-app.use('/api/invite-codes', inviteRoutes);
-
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+const server = app.listen(env.port, () => {
+  logger.info(`API running at http://localhost:${env.port}`);
+  logger.info(`Uploads served at http://localhost:${env.port}/uploads`);
 });
 
-// 404
-app.use((_req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+async function shutdown(signal: string): Promise<void> {
+  logger.info(`${signal} received, shutting down`);
+  server.close();
+  await closeBrowser();
+  await pool.end();
+  process.exit(0);
+}
 
-app.listen(PORT, () => {
-  console.log(`🚀 API running at http://localhost:${PORT}`);
-  console.log(`📁 Uploads served at http://localhost:${PORT}/uploads`);
-});
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
 
 export default app;

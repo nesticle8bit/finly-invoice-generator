@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -14,9 +14,9 @@ export interface InviteCode {
 
 @Injectable({ providedIn: 'root' })
 export class InviteService {
-  private readonly base = `${environment.apiUrl}/invite-codes`;
+  private http = inject(HttpClient);
 
-  constructor(private http: HttpClient) {}
+  private readonly base = `${environment.apiUrl}/invite-codes`;
 
   list(): Observable<InviteCode[]> {
     return this.http.get<InviteCode[]>(this.base);

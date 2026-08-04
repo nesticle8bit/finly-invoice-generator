@@ -35,6 +35,8 @@ export interface Client {
   created_at: string;
 }
 
+export type InvoiceStatus = 'draft' | 'sent' | 'paid';
+
 export interface InvoiceItem {
   id?: number;
   description: string;
@@ -44,11 +46,35 @@ export interface InvoiceItem {
   item_order?: number;
 }
 
+/** What the item form produces before amounts are computed. */
+export interface InvoiceItemInput {
+  description: string;
+  hours: number;
+  rate: number;
+  amount: number;
+}
+
+/**
+ * Payload accepted by POST/PUT /invoices. Every field is optional so a partial
+ * update (a status change, an autosave) is expressible without casting.
+ */
+export interface InvoiceInput {
+  invoice_number?: string;
+  date?: string;
+  status?: InvoiceStatus;
+  notes?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  client_id?: number | null;
+  is_template?: boolean;
+  items?: InvoiceItemInput[];
+}
+
 export interface Invoice {
   id: number;
   invoice_number: string;
   date: string;
-  status: 'draft' | 'sent' | 'paid';
+  status: InvoiceStatus;
   total: number;
   subtotal: number;
   notes: string;

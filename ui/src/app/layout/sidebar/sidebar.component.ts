@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { NgClass } from '@angular/common';
 import { MatTooltip } from '@angular/material/tooltip';
@@ -13,6 +13,7 @@ interface NavItem {
 @Component({
   selector: 'app-sidebar',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, RouterLinkActive, NgClass, MatTooltip],
   template: `
     <aside class="fixed left-0 top-0 h-screen w-64 flex flex-col z-30 bg-dark-950 border-r border-white/[0.06]">

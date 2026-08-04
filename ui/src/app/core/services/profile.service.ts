@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -6,9 +6,9 @@ import { Profile } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class ProfileService {
-  private readonly base = `${environment.apiUrl}/profile`;
+  private http = inject(HttpClient);
 
-  constructor(private http: HttpClient) {}
+  private readonly base = `${environment.apiUrl}/profile`;
 
   get(): Observable<Profile> {
     return this.http.get<Profile>(this.base);

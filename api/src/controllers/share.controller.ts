@@ -1,18 +1,35 @@
 import { Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { query, pool } from '../config/database';
+import { env } from '../config/env';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { logger } from '../config/logger';
+import { isValidWP, parseWP, setWP, stripWP } from '../utils/wp';
 
-// Helpers
-function parseWP(description: string): string | null {
-  const match = description.match(/\(WP:\s*(\d+)\)/);
-  return match ? match[1] : null;
+const SHARE_SESSION_TTL = '2h';
+
+interface ShareSessionPayload {
+  typ: 'share';
+  shareToken: string;
+  invoiceId: number;
 }
 
-function setWP(description: string, wpNumber: string | null): string {
-  const base = description.replace(/\s*\(WP:\s*\d+\)/, '').trim();
-  return wpNumber ? `${base} (WP: ${wpNumber})` : base;
+function signShareSession(shareToken: string, invoiceId: number): string {
+  const payload: ShareSessionPayload = { typ: 'share', shareToken, invoiceId };
+  return jwt.sign(payload, env.jwtSecret, { expiresIn: SHARE_SESSION_TTL });
+}
+
+/** Returns the payload only if the session was issued for this exact share token. */
+function verifyShareSession(sessionToken: string, shareToken: string): ShareSessionPayload | null {
+  try {
+    const decoded = jwt.verify(sessionToken, env.jwtSecret) as ShareSessionPayload;
+    if (decoded.typ !== 'share' || decoded.shareToken !== shareToken) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
 }
 
 async function resolveToken(token: string) {
@@ -69,7 +86,7 @@ export async function createShareLink(req: AuthRequest, res: Response): Promise<
 
     res.json({ token, expires_at: expiresAt });
   } catch (err) {
-    console.error('Create share link error:', err);
+    logger.error('Create share link error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -89,7 +106,7 @@ export async function revokeShareLink(req: AuthRequest, res: Response): Promise<
     await query('DELETE FROM invoice_share_tokens WHERE invoice_id = $1', [id]);
     res.json({ message: 'Share link revoked' });
   } catch (err) {
-    console.error('Revoke share link error:', err);
+    logger.error('Revoke share link error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -113,7 +130,7 @@ export async function getShareInfo(req: AuthRequest, res: Response): Promise<voi
     const expired = row.expires_at && new Date(row.expires_at) < new Date();
     res.json({ active: !expired, token: row.token, expires_at: row.expires_at, created_at: row.created_at });
   } catch (err) {
-    console.error('Get share info error:', err);
+    logger.error('Get share info error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -159,16 +176,18 @@ export async function accessSharedInvoice(req: Request, res: Response): Promise<
     const items = itemsResult.rows.map((row) => ({
       ...row,
       wp_number: parseWP(row.description),
-      description_clean: row.description.replace(/\s*\(WP:\s*\d+\)/, '').trim(),
+      description_clean: stripWP(row.description),
     }));
 
     res.json({
       invoice_number: invResult.rows[0].invoice_number,
       date: invResult.rows[0].date,
       items,
+      // Short-lived session so autosave never has to resend the password.
+      session_token: signShareSession(token, shareRow.invoice_id),
     });
   } catch (err) {
-    console.error('Access shared invoice error:', err);
+    logger.error('Access shared invoice error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -176,10 +195,28 @@ export async function accessSharedInvoice(req: Request, res: Response): Promise<
 // PUT /api/public/share/:token/wp  — public: update WP numbers only
 export async function updateSharedWP(req: Request, res: Response): Promise<void> {
   const { token } = req.params;
-  const { password, items } = req.body;
+  const { password, session_token, items } = req.body;
 
-  if (!password || !Array.isArray(items)) {
-    res.status(400).json({ error: 'Password and items array are required' });
+  if (!Array.isArray(items)) {
+    res.status(400).json({ error: 'Items array is required' });
+    return;
+  }
+  if (!session_token && !password) {
+    res.status(400).json({ error: 'A session token or password is required' });
+    return;
+  }
+
+  // Reject bad WP values up front — anything non-numeric would be written to the
+  // description but parsed back as null, silently losing the value.
+  const invalid = (items as { id: number; wp_number: unknown }[]).find(
+    (item) =>
+      item.wp_number !== null &&
+      item.wp_number !== undefined &&
+      String(item.wp_number).trim() !== '' &&
+      !isValidWP(String(item.wp_number).trim())
+  );
+  if (invalid) {
+    res.status(400).json({ error: 'Work package numbers must contain digits only' });
     return;
   }
 
@@ -195,10 +232,18 @@ export async function updateSharedWP(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const valid = await bcrypt.compare(password, shareRow.password_hash);
-    if (!valid) {
-      res.status(401).json({ error: 'Incorrect password' });
-      return;
+    // Prefer the session token: autosave fires often and bcrypt.compare is costly.
+    if (session_token) {
+      if (!verifyShareSession(session_token, token)) {
+        res.status(401).json({ error: 'Session expired. Please re-enter the password.' });
+        return;
+      }
+    } else {
+      const valid = await bcrypt.compare(password, shareRow.password_hash);
+      if (!valid) {
+        res.status(401).json({ error: 'Incorrect password' });
+        return;
+      }
     }
 
     // Validate that all item IDs belong to this invoice
@@ -215,7 +260,8 @@ export async function updateSharedWP(req: Request, res: Response): Promise<void>
         if (!validIds.has(item.id)) continue;
         const current = validItems.rows.find((r) => r.id === item.id);
         if (!current) continue;
-        const newDescription = setWP(current.description, item.wp_number || null);
+        const wp = String(item.wp_number ?? '').trim() || null;
+        const newDescription = setWP(current.description, wp);
         await client.query('UPDATE invoice_items SET description = $1 WHERE id = $2', [newDescription, item.id]);
       }
       await client.query('COMMIT');
@@ -228,7 +274,7 @@ export async function updateSharedWP(req: Request, res: Response): Promise<void>
 
     res.json({ message: 'Work package numbers updated successfully' });
   } catch (err) {
-    console.error('Update shared WP error:', err);
+    logger.error('Update shared WP error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

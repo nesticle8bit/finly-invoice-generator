@@ -1,14 +1,18 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NgFor, NgClass } from '@angular/common';
 import { ToastService } from './core/services/toast.service';
+import { ConfirmDialogComponent } from './shared/confirm/confirm-dialog.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, NgFor, NgClass],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterOutlet, NgFor, NgClass, ConfirmDialogComponent],
   template: `
     <router-outlet />
+
+    <app-confirm-dialog />
 
     <!-- Global Toast Notifications -->
     <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">

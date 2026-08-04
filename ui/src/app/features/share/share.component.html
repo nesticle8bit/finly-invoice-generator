@@ -1,0 +1,161 @@
+<div class="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4">
+
+  <!-- Logo / Brand -->
+  <div class="mb-8 text-center">
+    <div class="text-4xl font-black text-primary-600 tracking-tight">Invoice</div>
+    <p class="text-slate-500 text-sm mt-1">Work Package Entry</p>
+  </div>
+
+  <!-- Password gate -->
+  @if (!invoice()) {
+    <div class="w-full max-w-sm">
+      <div class="card p-8">
+        <h2 class="text-lg font-bold text-slate-800 mb-1">Protected Invoice</h2>
+        <p class="text-slate-500 text-sm mb-6">Enter the password to access and update Work Package numbers.</p>
+
+        @if (error()) {
+          <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {{ error() }}
+          </div>
+        }
+
+        <form (ngSubmit)="unlock()" class="space-y-4">
+          <div>
+            <label for="share-password" class="label">Password</label>
+            <input id="share-password"
+              type="password"
+              [(ngModel)]="password"
+              name="password"
+              class="input-field"
+              placeholder="Enter password"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <button type="submit" [disabled]="loading() || !password" class="btn-primary w-full justify-center">
+            @if (loading()) {
+              <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            }
+            Access Invoice
+          </button>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- Invoice editor -->
+  @if (invoice()) {
+    <div class="w-full max-w-3xl">
+
+      <!-- Header -->
+      <div class="card p-6 mb-6">
+        <div class="flex justify-between items-start">
+          <div>
+            <h2 class="text-xl font-bold text-slate-800">Invoice #{{ invoice()!.invoice_number }}</h2>
+            <p class="text-slate-500 text-sm mt-0.5">{{ invoice()!.date }}</p>
+          </div>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+            Draft — WP Entry Mode
+          </span>
+        </div>
+      </div>
+
+      <!-- Session expiry -->
+      @if (sessionExpired()) {
+        <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          Your session expired. Reload the page and enter the password again to keep editing.
+        </div>
+      }
+
+      <!-- Items table -->
+      <div class="card overflow-hidden mb-4">
+        <table class="w-full">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Task Description</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Hours</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-44">WP Number</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (item of editableItems(); track item.id; let i = $index) {
+              <tr [class.bg-slate-50]="i % 2 === 0">
+                <td class="px-4 py-3 text-sm text-slate-700">{{ item.description_clean }}</td>
+                <td class="px-4 py-3 text-sm text-slate-600 text-center">{{ item.hours }}</td>
+                <td class="px-4 py-3 text-center align-top">
+                  <div class="relative">
+                    <input
+                      type="text"
+                      inputmode="numeric"
+                      [(ngModel)]="item.wp_number"
+                      [name]="'wp_' + item.id"
+                      [attr.data-wp-input]="item.id"
+                      (ngModelChange)="onWpChange(item.id)"
+                      (blur)="flushWp(item.id)"
+                      (keyup.enter)="flushWp(item.id)"
+                      class="w-full text-center text-sm border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      [class.border-slate-200]="!isRowInvalid(item.id)"
+                      [class.border-red-300]="isRowInvalid(item.id)"
+                      [class.bg-red-50]="isRowInvalid(item.id)"
+                      placeholder="e.g. 3097"
+                    />
+                    @if (rowStatus()[item.id] === 'saving') {
+                      <span class="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-slate-300 border-t-primary-500 rounded-full animate-spin"></span>
+                    }
+                  </div>
+
+                  @if (rowError()[item.id]) {
+                    <div class="mt-1 text-xs font-medium text-red-600">{{ rowError()[item.id] }}</div>
+                  } @else if (rowStatus()[item.id] === 'saved') {
+                    <div class="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-emerald-600">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                      </svg>
+                      Saved
+                    </div>
+                  } @else if (rowStatus()[item.id] === 'error') {
+                    <div class="mt-1 flex items-center justify-center gap-1.5 text-xs font-medium text-red-600">
+                      <span>Not saved</span>
+                      <button type="button" (click)="saveRow(item.id)" class="underline hover:no-underline">
+                        Retry
+                      </button>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Global autosave state -->
+      <div class="flex justify-end mb-6 h-5">
+        @switch (globalStatus()) {
+          @case ('saving') {
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-500">
+              <span class="w-3 h-3 border-2 border-slate-300 border-t-primary-500 rounded-full animate-spin"></span>
+              Saving changes…
+            </span>
+          }
+          @case ('error') {
+            <span class="text-xs font-medium text-red-600">Some rows failed to save</span>
+          }
+          @case ('clean') {
+            <span class="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              All changes saved
+            </span>
+          }
+        }
+      </div>
+
+      <!-- Footer note -->
+      <p class="text-center text-slate-400 text-xs mt-8">
+        Changes save automatically. You can only edit the WP number — other fields are read-only.
+      </p>
+    </div>
+  }
+
+</div>

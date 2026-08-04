@@ -1,11 +1,16 @@
 import { Response } from 'express';
-import { query } from '../config/database';
+import { query, pool } from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { generateInvoicePDF } from '../services/pdf.service';
+import { parsePagination } from '../utils/pagination';
+import { logger } from '../config/logger';
+
+/** Postgres unique_violation — a duplicate invoice number for this user. */
+const UNIQUE_VIOLATION = '23505';
 
 export async function listInvoices(req: AuthRequest, res: Response): Promise<void> {
-  const { status, search, page = '1', limit = '20', client_id, date_from, date_to, is_template } = req.query;
-  const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+  const { status, search, client_id, date_from, date_to, is_template } = req.query;
+  const { page, limit, offset } = parsePagination(req.query.page, req.query.limit);
 
   try {
     let sql = `
@@ -29,8 +34,13 @@ export async function listInvoices(req: AuthRequest, res: Response): Promise<voi
     }
 
     if (client_id) {
+      const clientId = parseInt(client_id as string, 10);
+      if (!Number.isFinite(clientId)) {
+        res.status(400).json({ error: 'client_id must be a number' });
+        return;
+      }
       sql += ` AND i.client_id = $${paramIdx++}`;
-      params.push(parseInt(client_id as string));
+      params.push(clientId);
     }
 
     if (date_from) {
@@ -52,18 +62,18 @@ export async function listInvoices(req: AuthRequest, res: Response): Promise<voi
     const countResult = await query(`SELECT COUNT(*) FROM (${sql}) AS _c`, params);
 
     sql += ` ORDER BY i.created_at DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
-    params.push(parseInt(limit as string), offset);
+    params.push(limit, offset);
 
     const result = await query(sql, params);
 
     res.json({
       data: result.rows,
       total: parseInt(countResult.rows[0].count),
-      page: parseInt(page as string),
-      limit: parseInt(limit as string),
+      page,
+      limit,
     });
   } catch (err) {
-    console.error('List invoices error:', err);
+    logger.error('List invoices error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -93,26 +103,27 @@ export async function getInvoice(req: AuthRequest, res: Response): Promise<void>
 
     res.json({ ...invoiceResult.rows[0], items: itemsResult.rows });
   } catch (err) {
-    console.error('Get invoice error:', err);
+    logger.error('Get invoice error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
 
 export async function getNextNumber(req: AuthRequest, res: Response): Promise<void> {
   try {
+    // Highest numeric value, not the newest row: an out-of-order or edited
+    // invoice used to make the sequence go backwards and collide.
     const result = await query(
-      `SELECT invoice_number FROM invoices WHERE user_id = $1 ORDER BY id DESC LIMIT 1`,
+      `SELECT COALESCE(MAX(invoice_number::bigint), 0) AS max
+       FROM invoices
+       WHERE user_id = $1 AND invoice_number ~ '^[0-9]+$'`,
       [req.userId]
     );
 
-    let nextNum = 1;
-    if (result.rows.length > 0) {
-      nextNum = parseInt(result.rows[0].invoice_number) + 1;
-    }
+    const nextNum = Number(result.rows[0].max) + 1;
 
     res.json({ number: String(nextNum).padStart(4, '0') });
   } catch (err) {
-    console.error('Next number error:', err);
+    logger.error('Next number error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -130,13 +141,18 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
     return;
   }
 
-  const client = await query('BEGIN');
+  // A real transaction needs one dedicated connection — issuing BEGIN through
+  // the pool ran each statement on an arbitrary connection, so nothing was
+  // actually atomic and the BEGIN leaked onto a pooled connection.
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     // Calculate totals
     const total = items.reduce((sum: number, item: { hours: number; rate: number }) =>
       sum + item.hours * item.rate, 0);
 
-    const invoiceResult = await query(
+    const invoiceResult = await client.query(
       `INSERT INTO invoices (user_id, client_id, invoice_number, date, status, total, subtotal, notes, period_start, period_end)
        VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9) RETURNING *`,
       [req.userId, client_id || null, invoice_number, date, status || 'draft', total, notes, period_start, period_end]
@@ -148,14 +164,14 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const amount = item.hours * item.rate;
-      await query(
+      await client.query(
         `INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [invoice.id, item.description, item.hours, item.rate, amount, i]
       );
     }
 
-    await query('COMMIT');
+    await client.query('COMMIT');
 
     const full = await query(
       `SELECT i.*, c.name as client_name FROM invoices i
@@ -166,9 +182,17 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
 
     res.status(201).json({ ...full.rows[0], items: fullItems.rows });
   } catch (err) {
-    await query('ROLLBACK');
-    console.error('Create invoice error:', err);
+    await client.query('ROLLBACK').catch(() => undefined);
+
+    if ((err as { code?: string }).code === UNIQUE_VIOLATION) {
+      res.status(409).json({ error: `Invoice number ${invoice_number} already exists` });
+      return;
+    }
+
+    logger.error('Create invoice error', err);
     res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 }
 
@@ -176,15 +200,16 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
   const { id } = req.params;
   const { client_id, invoice_number, date, status, notes, period_start, period_end, items, is_template } = req.body;
 
+  const client = await pool.connect();
   try {
     // Check ownership
-    const exists = await query('SELECT id FROM invoices WHERE id = $1 AND user_id = $2', [id, req.userId]);
+    const exists = await client.query('SELECT id FROM invoices WHERE id = $1 AND user_id = $2', [id, req.userId]);
     if (exists.rows.length === 0) {
       res.status(404).json({ error: 'Invoice not found' });
       return;
     }
 
-    await query('BEGIN');
+    await client.query('BEGIN');
 
     const total = items
       ? items.reduce((sum: number, item: { hours: number; rate: number }) => sum + item.hours * item.rate, 0)
@@ -195,7 +220,7 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
       ? `, sent_at = COALESCE(sent_at, NOW())`
       : '';
 
-    await query(
+    await client.query(
       `UPDATE invoices SET
          client_id = COALESCE($1, client_id),
          invoice_number = COALESCE($2, invoice_number),
@@ -213,11 +238,11 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
     );
 
     if (items) {
-      await query('DELETE FROM invoice_items WHERE invoice_id = $1', [id]);
+      await client.query('DELETE FROM invoice_items WHERE invoice_id = $1', [id]);
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const amount = item.hours * item.rate;
-        await query(
+        await client.query(
           `INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [id, item.description, item.hours, item.rate, amount, i]
@@ -225,7 +250,7 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
       }
     }
 
-    await query('COMMIT');
+    await client.query('COMMIT');
 
     const full = await query(
       `SELECT i.*, c.name as client_name FROM invoices i
@@ -236,9 +261,17 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
 
     res.json({ ...full.rows[0], items: fullItems.rows });
   } catch (err) {
-    await query('ROLLBACK');
-    console.error('Update invoice error:', err);
+    await client.query('ROLLBACK').catch(() => undefined);
+
+    if ((err as { code?: string }).code === UNIQUE_VIOLATION) {
+      res.status(409).json({ error: `Invoice number ${invoice_number} already exists` });
+      return;
+    }
+
+    logger.error('Update invoice error', err);
     res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 }
 
@@ -255,7 +288,7 @@ export async function deleteInvoice(req: AuthRequest, res: Response): Promise<vo
     }
     res.json({ message: 'Invoice deleted successfully' });
   } catch (err) {
-    console.error('Delete invoice error:', err);
+    logger.error('Delete invoice error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -297,7 +330,7 @@ export async function downloadPDF(req: AuthRequest, res: Response): Promise<void
     res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceData.invoice_number}.pdf"`);
     res.send(pdfBuffer);
   } catch (err) {
-    console.error('Download PDF error:', err);
+    logger.error('Download PDF error', err);
     res.status(500).json({ error: 'Failed to generate PDF' });
   }
 }
@@ -335,43 +368,49 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
 
     res.json({ ...stats.rows[0], recent_invoices: recent.rows });
   } catch (err) {
-    console.error('Dashboard stats error:', err);
+    logger.error('Dashboard stats error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
 
 export async function duplicateInvoice(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    const src = await query(
+    const src = await client.query(
       'SELECT * FROM invoices WHERE id = $1 AND user_id = $2',
       [id, req.userId]
     );
     if (src.rows.length === 0) { res.status(404).json({ error: 'Invoice not found' }); return; }
     const inv = src.rows[0];
 
-    const nextNum = await query(
-      `SELECT LPAD((COALESCE(MAX(CAST(invoice_number AS INTEGER)), 0) + 1)::text, 4, '0') as num
+    await client.query('BEGIN');
+
+    // Take the number inside the transaction and lock this user's invoices so two
+    // concurrent duplicates cannot pick the same next number.
+    await client.query('SELECT pg_advisory_xact_lock($1)', [req.userId]);
+
+    const nextNum = await client.query(
+      `SELECT LPAD((COALESCE(MAX(invoice_number::bigint), 0) + 1)::text, 4, '0') as num
        FROM invoices WHERE user_id = $1 AND invoice_number ~ '^[0-9]+$'`,
       [req.userId]
     );
     const newNumber = nextNum.rows[0].num;
 
-    await query('BEGIN');
-    const newInv = await query(
+    const newInv = await client.query(
       `INSERT INTO invoices (user_id, client_id, invoice_number, date, status, total, subtotal, notes, period_start, period_end)
        VALUES ($1, $2, $3, NOW(), 'draft', $4, $5, $6, $7, $8) RETURNING *`,
       [req.userId, inv.client_id, newNumber, inv.total, inv.subtotal, inv.notes, inv.period_start, inv.period_end]
     );
-    const items = await query('SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order', [id]);
+    const items = await client.query('SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order', [id]);
     for (let i = 0; i < items.rows.length; i++) {
       const it = items.rows[i];
-      await query(
+      await client.query(
         'INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order) VALUES ($1,$2,$3,$4,$5,$6)',
         [newInv.rows[0].id, it.description, it.hours, it.rate, it.amount, i]
       );
     }
-    await query('COMMIT');
+    await client.query('COMMIT');
 
     const full = await query(
       `SELECT i.*, c.name as client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = $1`,
@@ -379,9 +418,11 @@ export async function duplicateInvoice(req: AuthRequest, res: Response): Promise
     );
     res.status(201).json(full.rows[0]);
   } catch (err) {
-    await query('ROLLBACK');
-    console.error('Duplicate invoice error:', err);
+    await client.query('ROLLBACK').catch(() => undefined);
+    logger.error('Duplicate invoice error', err);
     res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 }
 
@@ -401,7 +442,7 @@ export async function getMonthlyStats(req: AuthRequest, res: Response): Promise<
     );
     res.json(result.rows.reverse());
   } catch (err) {
-    console.error('Monthly stats error:', err);
+    logger.error('Monthly stats error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

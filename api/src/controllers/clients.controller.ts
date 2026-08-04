@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { query } from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { logger } from '../config/logger';
 
 export async function listClients(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -10,7 +11,7 @@ export async function listClients(req: AuthRequest, res: Response): Promise<void
     );
     res.json(result.rows);
   } catch (err) {
-    console.error('List clients error:', err);
+    logger.error('List clients error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -28,7 +29,7 @@ export async function getClient(req: AuthRequest, res: Response): Promise<void> 
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Get client error:', err);
+    logger.error('Get client error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -49,7 +50,7 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Create client error:', err);
+    logger.error('Create client error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -79,7 +80,7 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Update client error:', err);
+    logger.error('Update client error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -97,7 +98,7 @@ export async function deleteClient(req: AuthRequest, res: Response): Promise<voi
     }
     res.json({ message: 'Client deleted successfully' });
   } catch (err) {
-    console.error('Delete client error:', err);
+    logger.error('Delete client error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

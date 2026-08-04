@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -6,9 +6,9 @@ import { Client } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class ClientService {
-  private readonly base = `${environment.apiUrl}/clients`;
+  private http = inject(HttpClient);
 
-  constructor(private http: HttpClient) {}
+  private readonly base = `${environment.apiUrl}/clients`;
 
   list(): Observable<Client[]> {
     return this.http.get<Client[]>(this.base);

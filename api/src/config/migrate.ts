@@ -108,6 +108,9 @@ CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON invoice_items(invoice
 CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);
 CREATE INDEX IF NOT EXISTS idx_share_tokens_token ON invoice_share_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_share_tokens_invoice_id ON invoice_share_tokens(invoice_id);
+-- The invoice list always filters by owner and sorts by date/status.
+CREATE INDEX IF NOT EXISTS idx_invoices_user_date ON invoices(user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_invoices_user_status ON invoices(user_id, status);
 `;
 
 const alterations = `
@@ -116,12 +119,44 @@ ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sent_at TIMESTAMP DEFAULT NULL;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS is_template BOOLEAN DEFAULT FALSE;
 `;
 
+/**
+ * Applied separately: it fails loudly if the table already holds duplicates,
+ * and that needs a human decision rather than aborting the whole migration.
+ */
+const constraints = `
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_user_number
+  ON invoices(user_id, invoice_number);
+`;
+
+const DUPLICATE_QUERY = `
+SELECT user_id, invoice_number, COUNT(*) AS copies
+FROM invoices
+GROUP BY user_id, invoice_number
+HAVING COUNT(*) > 1
+ORDER BY copies DESC`;
+
 async function migrate() {
   const client = await pool.connect();
   try {
     console.log('🚀 Running database migrations...');
     await client.query(schema);
     await client.query(alterations);
+
+    try {
+      await client.query(constraints);
+    } catch {
+      const dupes = await client.query(DUPLICATE_QUERY);
+      console.error(
+        '\n⚠️  Could not create the unique index on (user_id, invoice_number).\n' +
+          '   Duplicate invoice numbers already exist:'
+      );
+      dupes.rows.forEach((r) =>
+        console.error(`   user ${r.user_id} → invoice ${r.invoice_number} (${r.copies} copies)`)
+      );
+      console.error('   Renumber them, then run `npm run migrate` again.\n');
+      process.exit(1);
+    }
+
     console.log('✅ Migrations completed successfully!');
   } catch (err) {
     console.error('❌ Migration failed:', err);
