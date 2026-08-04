@@ -51,7 +51,9 @@ export class InvoiceListComponent implements OnInit {
   rangeStart = computed(() => (this.total() === 0 ? 0 : (this.page() - 1) * this.pageSize + 1));
   rangeEnd = computed(() => Math.min(this.page() * this.pageSize, this.total()));
 
-  // Sorting (server-side, against a whitelist of columns).
+  // Sorting (server-side, against a whitelist of columns). The chosen order is
+  // remembered across sessions — it is a per-user preference, not a per-visit one.
+  private static readonly SORT_KEY = 'inv_sort';
   sortColumn = signal<SortColumn>('date');
   sortAsc = signal(false);
 
@@ -82,9 +84,37 @@ export class InvoiceListComponent implements OnInit {
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
+    this.restoreSort();
     this.clientService.list().subscribe((clients) => this.clients.set(clients));
     this.profileService.get().subscribe();
     this.load();
+  }
+
+  private restoreSort(): void {
+    try {
+      const raw = localStorage.getItem(InvoiceListComponent.SORT_KEY);
+      if (!raw) return;
+
+      const saved = JSON.parse(raw) as { column?: string; asc?: boolean };
+      // Ignore anything that is no longer a sortable column.
+      if (!this.sortableColumns.some((c) => c.key === saved.column)) return;
+
+      this.sortColumn.set(saved.column as SortColumn);
+      this.sortAsc.set(!!saved.asc);
+    } catch {
+      // Corrupt or unavailable storage just means the default order.
+    }
+  }
+
+  private persistSort(): void {
+    try {
+      localStorage.setItem(
+        InvoiceListComponent.SORT_KEY,
+        JSON.stringify({ column: this.sortColumn(), asc: this.sortAsc() })
+      );
+    } catch {
+      // Private mode or a full quota must not break sorting.
+    }
   }
 
   /** `n` opens a new invoice, `/` or Ctrl+K focuses search — this screen is used all day. */
@@ -178,6 +208,7 @@ export class InvoiceListComponent implements OnInit {
       this.sortColumn.set(column);
       this.sortAsc.set(column !== 'date' && column !== 'total');
     }
+    this.persistSort();
     this.page.set(1);
     this.load();
   }
