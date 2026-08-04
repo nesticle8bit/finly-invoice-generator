@@ -86,6 +86,8 @@ export interface Invoice {
   client_city?: string;
   client_postal_code?: string;
   client_vat?: string;
+  /** Overrides the profile default when the client bills in another currency. */
+  client_currency?: string | null;
   items: InvoiceItem[];
   sent_at?: string;
   is_template?: boolean;

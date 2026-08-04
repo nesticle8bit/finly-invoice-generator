@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { DecimalPipe } from "@angular/common";
+import { CurrencyPipe } from "@angular/common";
+import { MoneyPipe } from "../../../shared/money/money.pipe";
 import { FormsModule } from "@angular/forms";
 import { InvoiceService } from "../../../core/services/invoice.service";
 import { ClientService } from "../../../core/services/client.service";
@@ -14,7 +15,8 @@ import { merge } from "rxjs";
   selector: "app-invoice-editor",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FormsModule, RouterLink, DecimalPipe],
+  imports: [ReactiveFormsModule, FormsModule, RouterLink, MoneyPipe],
+  providers: [CurrencyPipe],
   templateUrl: './invoice-editor.component.html',
 })
 export class InvoiceEditorComponent implements OnInit, OnDestroy {
@@ -162,6 +164,48 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.autosaveTimer) clearInterval(this.autosaveTimer);
     if (this.autosaveHideTimer) clearTimeout(this.autosaveHideTimer);
+  }
+
+  /** Consumed by unsavedChangesGuard — autosave only runs every 30 seconds. */
+  hasUnsavedChanges(): boolean {
+    return this.form.dirty && !this.saving();
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (!this.hasUnsavedChanges()) return;
+    event.preventDefault();
+    event.returnValue = '';
+  }
+
+  /** Ctrl/Cmd+Enter saves, Ctrl/Cmd+I adds an item — this form is filled in bulk. */
+  @HostListener('document:keydown', ['$event'])
+  onShortcut(event: KeyboardEvent): void {
+    if (!event.ctrlKey && !event.metaKey) return;
+
+    const key = event.key.toLowerCase();
+    if (key === 'enter') {
+      event.preventDefault();
+      this.onSubmit();
+    } else if (key === 'i') {
+      event.preventDefault();
+      this.addItem();
+      this.focusLastItem();
+    }
+  }
+
+  private focusLastItem(): void {
+    setTimeout(() => {
+      const inputs = document.querySelectorAll<HTMLInputElement>('[formarrayname="items"] input[formcontrolname="description"]');
+      inputs[inputs.length - 1]?.focus();
+    });
+  }
+
+  /** Enter on the last description field appends a row instead of submitting. */
+  onDescriptionEnter(index: number, event: Event): void {
+    event.preventDefault();
+    if (index === this.itemsArray.length - 1) this.addItem();
+    this.focusLastItem();
   }
 
   createItemGroup(description = "", hours = 0, rate = 0): FormGroup {

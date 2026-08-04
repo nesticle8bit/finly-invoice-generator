@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from "@angular/forms";
-import { NgClass, DatePipe, DecimalPipe } from "@angular/common";
+import { NgClass, DatePipe, CurrencyPipe } from "@angular/common";
+import { MoneyPipe } from "../../shared/money/money.pipe";
+import { SkeletonRowsComponent } from "../../shared/skeleton/skeleton.component";
 import { ClientService } from "../../core/services/client.service";
 import { InvoiceService } from "../../core/services/invoice.service";
 import { ToastService } from "../../core/services/toast.service";
@@ -11,7 +13,8 @@ import { ConfirmService } from "../../shared/confirm/confirm.service";
   selector: "app-clients",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NgClass, DatePipe, DecimalPipe],
+  imports: [ReactiveFormsModule, NgClass, DatePipe, MoneyPipe, SkeletonRowsComponent],
+  providers: [CurrencyPipe],
   templateUrl: './clients.component.html',
 })
 export class ClientsComponent implements OnInit {

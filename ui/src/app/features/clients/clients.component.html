@@ -1,6 +1,6 @@
-<div class="p-8">
+<div class="p-4 sm:p-6 lg:p-8">
   <!-- Header -->
-  <div class="flex items-center justify-between mb-6">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
     <div>
       <h1 class="text-2xl font-bold text-slate-900">Clients</h1>
       <p class="text-slate-500 text-sm mt-0.5">{{ clients().length }} client(s)</p>
@@ -55,7 +55,7 @@
         @if (outstandingMap()[client.id]) {
           <span class="inline-flex items-center gap-1 mt-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
             <i class="ti ti-clock text-xs"></i>
-            €{{ outstandingMap()[client.id] | number:'1.0-2' }} outstanding
+            {{ outstandingMap()[client.id] | money }} outstanding
           </span>
         }
         <button type="button" (click)="openHistory(client)" class="mt-3 text-xs text-primary-600 font-semibold hover:underline block">
@@ -95,9 +95,7 @@
       </div>
       <div class="p-6 flex-1">
         @if (historyLoading()) {
-          <div class="flex items-center justify-center h-32">
-            <i class="ti ti-loader-2 text-2xl text-primary-600 animate-spin"></i>
-          </div>
+          <app-skeleton-rows [count]="4" [columns]="[30, 20, 25]" />
         } @else if (clientInvoices().length === 0) {
           <p class="text-sm text-slate-400 text-center mt-8">No invoices for this client.</p>
         } @else {
@@ -109,7 +107,7 @@
                   <p class="text-xs text-slate-400">{{ inv.date | date:'MMM d, y' }}</p>
                 </div>
                 <div class="text-right">
-                  <p class="text-sm font-bold text-slate-900">€{{ inv.total | number:'1.0-2' }}</p>
+                  <p class="text-sm font-bold text-slate-900">{{ inv.total | money }}</p>
                   <span [class]="inv.status === 'paid' ? 'badge-paid' : inv.status === 'sent' ? 'badge-sent' : 'badge-draft'">{{ inv.status }}</span>
                 </div>
               </div>
@@ -118,12 +116,12 @@
           <div class="mt-6 pt-4 border-t border-slate-100 space-y-1">
             <div class="flex justify-between text-sm">
               <span class="text-slate-500">Total billed</span>
-              <span class="font-bold text-slate-900">€{{ totalBilled() | number:'1.0-2' }}</span>
+              <span class="font-bold text-slate-900">{{ totalBilled() | money }}</span>
             </div>
             @if (totalOutstanding() > 0) {
               <div class="flex justify-between text-sm">
                 <span class="text-amber-600">Outstanding</span>
-                <span class="font-bold text-amber-700">€{{ totalOutstanding() | number:'1.0-2' }}</span>
+                <span class="font-bold text-amber-700">{{ totalOutstanding() | money }}</span>
               </div>
             }
           </div>
@@ -147,7 +145,7 @@
       </div>
 
       <form [formGroup]="clientForm" (ngSubmit)="onSave()" class="p-6 space-y-4">
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="col-span-2">
             <label for="clients-company-name" class="label">Company Name *</label>
             <input id="clients-company-name" type="text" formControlName="name" placeholder="Company GmbH" class="input-field" />

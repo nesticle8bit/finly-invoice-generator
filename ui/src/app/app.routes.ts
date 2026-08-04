@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/guards/auth.guard';
+import { unsavedChangesGuard } from './core/guards/unsaved-changes.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -23,10 +24,12 @@ export const routes: Routes = [
       },
       {
         path: 'invoices/new',
+        canDeactivate: [unsavedChangesGuard],
         loadComponent: () => import('./features/invoices/invoice-editor/invoice-editor.component').then((m) => m.InvoiceEditorComponent),
       },
       {
         path: 'invoices/:id/edit',
+        canDeactivate: [unsavedChangesGuard],
         loadComponent: () => import('./features/invoices/invoice-editor/invoice-editor.component').then((m) => m.InvoiceEditorComponent),
       },
       {

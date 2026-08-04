@@ -18,8 +18,21 @@ export class InvoiceService {
     return this.http.get<{ number: string }>(`${this.base}/next-number`);
   }
 
-  list(params?: { status?: string; search?: string; page?: number; limit?: number; client_id?: number; date_from?: string; date_to?: string; is_template?: boolean }): Observable<PaginatedResponse<Invoice>> {
+  list(params?: {
+    status?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    client_id?: number;
+    date_from?: string;
+    date_to?: string;
+    is_template?: boolean;
+    sort?: string;
+    order?: 'asc' | 'desc';
+  }): Observable<PaginatedResponse<Invoice>> {
     let httpParams = new HttpParams();
+    if (params?.sort) httpParams = httpParams.set('sort', params.sort);
+    if (params?.order) httpParams = httpParams.set('order', params.order);
     if (params?.status) httpParams = httpParams.set('status', params.status);
     if (params?.search) httpParams = httpParams.set('search', params.search);
     if (params?.page) httpParams = httpParams.set('page', params.page.toString());

@@ -1,4 +1,4 @@
-<div class="p-8 mx-auto">
+<div class="p-4 sm:p-6 lg:p-8 mx-auto">
   <!-- Header -->
   <div class="flex items-center gap-3 mb-8">
     <a routerLink="/invoices" class="btn-ghost p-2">
@@ -16,7 +16,7 @@
     <!-- Invoice Meta -->
     <div class="card p-6 mb-5">
       <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Invoice Details</h2>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="invoice-editor-invoice-number" class="label">Invoice Number</label>
           <input id="invoice-editor-invoice-number" type="text" formControlName="invoice_number" class="input-field font-mono" placeholder="0078" />
@@ -48,7 +48,7 @@
     <!-- Period (for notes) -->
     <div class="card p-6 mb-5">
       <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Work Period</h2>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="invoice-editor-period-start" class="label">Period Start</label>
           <input id="invoice-editor-period-start" type="date" formControlName="period_start" class="input-field" />
@@ -86,7 +86,13 @@
         @for (item of itemsArray.controls; track $index; let i = $index) {
           <div [formGroupName]="i" class="grid grid-cols-12 gap-2 items-start group">
             <div class="col-span-6">
-              <input type="text" formControlName="description" placeholder="Task description" class="input-field text-xs py-2" />
+              <input
+                type="text"
+                formControlName="description"
+                placeholder="Task description"
+                class="input-field text-xs py-2"
+                (keydown.enter)="onDescriptionEnter(i, $event)"
+              />
             </div>
             <div class="col-span-2">
               <input type="number" formControlName="hours" placeholder="0" min="0" step="0.5" (input)="recalcItem()" class="input-field text-xs py-2 text-center" />
@@ -95,7 +101,7 @@
               <input type="number" formControlName="rate" placeholder="25" min="0" step="0.5" (input)="recalcItem()" class="input-field text-xs py-2 text-center" />
             </div>
             <div class="col-span-1 flex items-center justify-end h-[38px]">
-              <span class="text-sm font-semibold text-slate-700"> €{{ getItemAmount(i) | number: "1.0-2" }} </span>
+              <span class="text-sm font-semibold text-slate-700"> {{ getItemAmount(i) | money }} </span>
             </div>
             <div class="col-span-1 flex items-center justify-center h-[38px]">
               <button type="button" (click)="removeItem(i)" class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all p-1 rounded">
@@ -112,7 +118,7 @@
       <div class="mt-4 pt-4 border-t border-slate-100 flex justify-end">
         <div class="flex items-center gap-4">
           <span class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Total</span>
-          <span class="text-2xl font-bold text-primary-600">€{{ getTotal() | number: "1.0-2" }}</span>
+          <span class="text-2xl font-bold text-primary-600">{{ getTotal() | money }}</span>
         </div>
       </div>
     </div>

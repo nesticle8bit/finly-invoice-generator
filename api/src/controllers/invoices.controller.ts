@@ -8,6 +8,25 @@ import { logger } from '../config/logger';
 /** Postgres unique_violation — a duplicate invoice number for this user. */
 const UNIQUE_VIOLATION = '23505';
 
+/**
+ * Sortable columns, mapped to SQL. A whitelist is mandatory here: ORDER BY
+ * cannot be parameterised, so anything else would be string interpolation.
+ */
+const SORT_COLUMNS: Record<string, string> = {
+  invoice_number: 'i.invoice_number',
+  date: 'i.date',
+  status: 'i.status',
+  total: 'i.total',
+  client_name: 'c.name',
+  created_at: 'i.created_at',
+};
+
+function resolveSort(rawSort: unknown, rawOrder: unknown): string {
+  const column = SORT_COLUMNS[String(rawSort ?? '')] ?? 'i.created_at';
+  const direction = String(rawOrder ?? '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  return `${column} ${direction}`;
+}
+
 export async function listInvoices(req: AuthRequest, res: Response): Promise<void> {
   const { status, search, client_id, date_from, date_to, is_template } = req.query;
   const { page, limit, offset } = parsePagination(req.query.page, req.query.limit);
@@ -61,7 +80,7 @@ export async function listInvoices(req: AuthRequest, res: Response): Promise<voi
 
     const countResult = await query(`SELECT COUNT(*) FROM (${sql}) AS _c`, params);
 
-    sql += ` ORDER BY i.created_at DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+    sql += ` ORDER BY ${resolveSort(req.query.sort, req.query.order)} LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
     params.push(limit, offset);
 
     const result = await query(sql, params);
@@ -84,7 +103,8 @@ export async function getInvoice(req: AuthRequest, res: Response): Promise<void>
     const invoiceResult = await query(
       `SELECT i.*, c.name as client_name, c.address as client_address,
               c.city as client_city, c.postal_code as client_postal_code,
-              c.vat as client_vat, c.email as client_email
+              c.vat as client_vat, c.email as client_email,
+              c.currency as client_currency
        FROM invoices i
        LEFT JOIN clients c ON c.id = i.client_id
        WHERE i.id = $1 AND i.user_id = $2`,

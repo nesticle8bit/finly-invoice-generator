@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from "@angular/router";
-import { DatePipe, DecimalPipe } from "@angular/common";
+import { DatePipe, CurrencyPipe } from "@angular/common";
+import { MoneyPipe } from "../../../shared/money/money.pipe";
 import { FormsModule } from "@angular/forms";
 import { InvoiceService } from "../../../core/services/invoice.service";
 import { ProfileService } from "../../../core/services/profile.service";
@@ -13,7 +14,8 @@ import { environment } from "../../../../environments/environment";
   selector: "app-invoice-preview",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, DatePipe, DecimalPipe, FormsModule],
+  imports: [RouterLink, DatePipe, FormsModule, MoneyPipe],
+  providers: [CurrencyPipe],
   templateUrl: './invoice-preview.component.html',
 })
 export class InvoicePreviewComponent implements OnInit {
@@ -48,6 +50,7 @@ export class InvoicePreviewComponent implements OnInit {
     this.invoiceService.getById(this.invoiceId).subscribe({
       next: (inv) => {
         this.invoice.set(inv);
+        this.clientCurrency.set(inv.client_currency ?? null);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
@@ -69,6 +72,13 @@ export class InvoicePreviewComponent implements OnInit {
     if (!p?.signature_path) return "";
     return `${environment.uploadsUrl}/${p.signature_path}`;
   }
+
+  /** The client's currency wins over the profile default for this invoice. */
+  invoiceCurrency(): string | null {
+    return this.clientCurrency() ?? this.profile()?.currency ?? null;
+  }
+
+  private clientCurrency = signal<string | null>(null);
 
   getUserInitials(): string {
     const name = this.profile()?.name || "JP";

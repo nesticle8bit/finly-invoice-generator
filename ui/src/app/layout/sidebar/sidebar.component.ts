@@ -16,7 +16,7 @@ interface NavItem {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, RouterLinkActive, NgClass, MatTooltip],
   template: `
-    <aside class="fixed left-0 top-0 h-screen w-64 flex flex-col z-30 bg-dark-950 border-r border-white/[0.06]">
+    <aside id="app-sidebar" class="fixed left-0 top-0 h-screen w-64 flex flex-col z-30 bg-dark-950 border-r border-white/[0.06]">
 
       <!-- Logo -->
       <div class="flex items-center gap-3 px-5 h-16 border-b border-white/[0.06] flex-shrink-0">

@@ -1,4 +1,4 @@
-<div class="p-8 max-w-5xl">
+<div class="p-4 sm:p-6 lg:p-8 max-w-5xl">
 
   <!-- Header -->
   <div class="mb-8">
@@ -7,19 +7,28 @@
   </div>
 
   @if (loading()) {
-    <div class="flex justify-center h-48 items-center">
-      <i class="ti ti-loader-2 text-3xl text-primary-600 animate-spin"></i>
+    <div class="card p-6 animate-pulse space-y-4" aria-hidden="true">
+      <div class="h-3 w-40 rounded bg-slate-100"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        @for (field of [1, 2, 3, 4]; track field) {
+          <div class="space-y-2">
+            <div class="h-2.5 w-24 rounded bg-slate-100"></div>
+            <div class="h-9 w-full rounded-lg bg-slate-100"></div>
+          </div>
+        }
+      </div>
     </div>
+    <span class="sr-only" role="status">Loading settings…</span>
   } @else {
 
-    <div class="flex gap-6 items-start">
+    <div class="flex flex-col lg:flex-row gap-4 lg:gap-6 items-stretch lg:items-start">
 
-      <!-- LEFT: Vertical tab nav -->
-      <nav class="w-52 flex-shrink-0 flex flex-col gap-1">
+      <!-- Tabs: a horizontal scroller on phones, a vertical rail from lg up -->
+      <nav class="flex lg:w-52 lg:flex-shrink-0 flex-row lg:flex-col gap-1 overflow-x-auto scrollbar-thin">
         @for (tab of visibleTabs(); track tab.id) {
           <button
             (click)="activeTab.set(tab.id)"
-            class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 text-left w-full"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 text-left whitespace-nowrap lg:w-full"
             [class.bg-primary-50]="activeTab() === tab.id"
             [class.text-primary-700]="activeTab() === tab.id"
             [class.font-semibold]="activeTab() === tab.id"
@@ -49,7 +58,7 @@
                   <p class="text-slate-400 text-xs">Your name and contact details appear on invoices</p>
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label for="settings-full-name" class="label">Full Name</label>
                   <div class="relative">
@@ -94,7 +103,7 @@
                   <p class="text-slate-400 text-xs">Bank info and rate shown on generated invoices</p>
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label for="settings-swift-bic" class="label">SWIFT / BIC</label>
                   <div class="relative">

@@ -1,6 +1,6 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Profile } from '../models';
 
@@ -10,12 +10,19 @@ export class ProfileService {
 
   private readonly base = `${environment.apiUrl}/profile`;
 
+  /** Default currency, kept here so MoneyPipe can format without a fetch per row. */
+  readonly currency = signal<string>('EUR');
+
   get(): Observable<Profile> {
-    return this.http.get<Profile>(this.base);
+    return this.http.get<Profile>(this.base).pipe(tap((p) => this.cacheCurrency(p)));
   }
 
   update(data: Partial<Profile>): Observable<Profile> {
-    return this.http.put<Profile>(this.base, data);
+    return this.http.put<Profile>(this.base, data).pipe(tap((p) => this.cacheCurrency(p)));
+  }
+
+  private cacheCurrency(profile: Profile): void {
+    if (profile?.currency) this.currency.set(profile.currency.toUpperCase());
   }
 
   uploadLogo(file: File): Observable<{ logo_path: string; url: string }> {

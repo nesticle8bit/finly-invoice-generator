@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from "@angular/router";
-import { DatePipe, DecimalPipe, NgClass } from "@angular/common";
+import { DatePipe, CurrencyPipe, NgClass } from "@angular/common";
+import { MoneyPipe } from "../../shared/money/money.pipe";
 import { InvoiceService } from "../../core/services/invoice.service";
 import { DashboardStats, MonthStat } from "../../core/models";
 
@@ -8,7 +9,8 @@ import { DashboardStats, MonthStat } from "../../core/models";
   selector: "app-dashboard",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, DatePipe, DecimalPipe, NgClass],
+  imports: [RouterLink, DatePipe, NgClass, MoneyPipe],
+  providers: [CurrencyPipe],
   templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent implements OnInit {

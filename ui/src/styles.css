@@ -12,17 +12,22 @@
 }
 
 @layer components {
+  /* Every button gets a visible keyboard ring — only inputs had one before. */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2;
   }
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-lg border border-slate-200 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-lg border border-slate-200 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2;
   }
   .btn-danger {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm disabled:opacity-50;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm disabled:opacity-50
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2;
   }
   .btn-ghost {
-    @apply inline-flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-sm font-medium rounded-lg transition-all duration-200;
+    @apply inline-flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-sm font-medium rounded-lg transition-all duration-200
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1;
   }
   .input-field {
     @apply w-full px-3 py-2.5 text-sm text-slate-800 bg-white border border-slate-200 rounded-lg
@@ -63,9 +68,36 @@
   }
 }
 
+/* Links and anything else focusable that isn't a .btn-* */
+@layer base {
+  a:focus-visible,
+  [tabindex]:focus-visible,
+  summary:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 rounded;
+  }
+}
+
 /* Invoice preview styles */
 .invoice-preview {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* The A4 sheet has a fixed 794px width; scale it down rather than let the page
+   scroll sideways on phones and tablets. */
+@media (max-width: 860px) {
+  .invoice-preview {
+    transform: scale(0.55);
+    transform-origin: top center;
+    margin-bottom: -480px;
+  }
+}
+
+@media (min-width: 861px) and (max-width: 1100px) {
+  .invoice-preview {
+    transform: scale(0.8);
+    transform-origin: top center;
+    margin-bottom: -220px;
+  }
 }
 
 /* Angular Material tooltip — fix Tailwind Preflight conflicts */
