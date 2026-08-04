@@ -29,11 +29,12 @@
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "^18.2.0",
+    "@angular-eslint/schematics": "^18.4.3",
     "@angular/cli": "^18.2.0",
     "@angular/compiler-cli": "^18.2.0",
     "@types/jasmine": "^6.0.0",
     "@types/node": "^18.18.0",
-    "angular-eslint": "21.0.1",
+    "angular-eslint": "^18.4.3",
     "autoprefixer": "^10.4.19",
     "eslint": "^9.39.1",
     "jasmine-core": "^6.3.0",
