@@ -132,17 +132,11 @@
                   (change)="toggleSelectAll()"
                 >
               </th>
-              @for (col of [
-                { key: 'invoice_number', label: 'Invoice #', align: 'text-left' },
-                { key: 'client_name', label: 'Client', align: 'text-left' },
-                { key: 'date', label: 'Date', align: 'text-left' },
-                { key: 'status', label: 'Status', align: 'text-left' },
-                { key: 'total', label: 'Total', align: 'text-right' }
-              ]; track col.key) {
-                <th scope="col" class="px-6 py-3 {{ col.align }}">
+              @for (col of sortableColumns; track col.key) {
+                <th scope="col" class="px-6 py-3" [class.text-right]="col.alignRight">
                   <button
                     type="button"
-                    (click)="sortBy($any(col.key))"
+                    (click)="sortBy(col.key)"
                     class="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-600 transition-colors"
                     [class.text-slate-700]="sortColumn() === col.key"
                     [attr.aria-sort]="sortColumn() === col.key ? (sortAsc() ? 'ascending' : 'descending') : 'none'"
@@ -161,7 +155,7 @@
           </thead>
           <tbody class="divide-y divide-slate-50">
             @for (inv of invoices(); track inv.id) {
-              <tr class="hover:bg-slate-50/60 transition-colors group" [class.bg-primary-50/40]="isSelected(inv.id)">
+              <tr class="hover:bg-slate-50/60 transition-colors group" [class.row-selected]="isSelected(inv.id)">
                 <td class="px-4 py-3.5">
                   <label [for]="'select-' + inv.id" class="sr-only">Select invoice {{ inv.invoice_number }}</label>
                   <input

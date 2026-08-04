@@ -51,6 +51,10 @@ export class ShellComponent {
 
   menuOpen = signal(false);
 
+  toggleMenu(): void {
+    this.menuOpen.update((open) => !open);
+  }
+
   constructor() {
     // Navigating from the off-canvas menu should close it.
     this.router.events

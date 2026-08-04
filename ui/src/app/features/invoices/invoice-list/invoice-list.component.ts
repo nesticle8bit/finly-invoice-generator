@@ -21,6 +21,8 @@ export type SortColumn = 'invoice_number' | 'client_name' | 'date' | 'status' | 
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, DatePipe, NgClass, FormsModule, MatTooltip, MoneyPipe, SkeletonRowsComponent],
   providers: [CurrencyPipe],
+  // A slash in a class binding name breaks the template parser, so the tint lives here.
+  styles: [`.row-selected { @apply bg-primary-50/40; }`],
   templateUrl: './invoice-list.component.html',
 })
 export class InvoiceListComponent implements OnInit {
@@ -61,6 +63,14 @@ export class InvoiceListComponent implements OnInit {
     return rows.length > 0 && rows.every((inv) => this.selectedIds().has(inv.id));
   });
   bulkRunning = signal(false);
+
+  readonly sortableColumns: { key: SortColumn; label: string; alignRight?: boolean }[] = [
+    { key: 'invoice_number', label: 'Invoice #' },
+    { key: 'client_name', label: 'Client' },
+    { key: 'date', label: 'Date' },
+    { key: 'status', label: 'Status' },
+    { key: 'total', label: 'Total', alignRight: true },
+  ];
 
   statuses = [
     { label: 'All', value: '' },
