@@ -51,7 +51,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 
 # Uploads are written at runtime, so the unprivileged user must own them.
-RUN mkdir -p uploads && chown -R node:node /app
+# The subdirs must exist in the image: a named volume seeds itself from this
+# path, and an empty /app/uploads seeds an empty, root-owned volume.
+RUN mkdir -p uploads/logos uploads/signatures && chown -R node:node /app
 
 # Drop root: a Chromium exploit should not land on a root shell.
 USER node

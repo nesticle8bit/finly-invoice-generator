@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config();
 
@@ -39,7 +40,9 @@ export const env = {
   jwtSecret: requireSecret(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   corsOrigins: parseOrigins(),
-  uploadDir: process.env.UPLOAD_DIR || 'uploads',
+  // Absolute from the start: multer resolved it against cwd while the static
+  // handler joined it onto cwd itself, so a relative value meant two paths.
+  uploadDir: path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads'),
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880', 10),
   db: {
     host: process.env.DB_HOST || 'localhost',

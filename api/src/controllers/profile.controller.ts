@@ -98,9 +98,12 @@ async function replaceAsset(
   try {
     const old = await query(`SELECT ${column} FROM profiles WHERE user_id = $1`, [req.userId]);
 
+    // Upsert, not UPDATE: a user who never saved their profile has no row, and
+    // the plain UPDATE silently matched nothing while reporting success.
     await query(
-      `UPDATE profiles SET ${column} = $1, updated_at = NOW() WHERE user_id = $2`,
-      [relativePath, req.userId]
+      `INSERT INTO profiles (user_id, ${column}) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET ${column} = EXCLUDED.${column}, updated_at = NOW()`,
+      [req.userId, relativePath]
     );
 
     // Only drop the previous file once the new path is committed.

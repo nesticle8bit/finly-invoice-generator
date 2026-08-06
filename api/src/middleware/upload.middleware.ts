@@ -2,14 +2,30 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { env } from '../config/env';
+import { logger } from '../config/logger';
 
 const uploadsDir = env.uploadDir;
 
-// Ensure directories exist
+/**
+ * Creating the directory is not enough: a Docker named volume keeps whatever
+ * ownership it was created with, so the dirs can exist and still be unwritable
+ * by the runtime user. That used to fail at write time as an opaque 500.
+ */
+function ensureWritable(fullPath: string): void {
+  fs.mkdirSync(fullPath, { recursive: true });
+  fs.accessSync(fullPath, fs.constants.W_OK | fs.constants.X_OK);
+}
+
 ['logos', 'signatures'].forEach((dir) => {
   const fullPath = path.join(uploadsDir, dir);
-  if (!fs.existsSync(fullPath)) {
-    fs.mkdirSync(fullPath, { recursive: true });
+  try {
+    ensureWritable(fullPath);
+  } catch (err) {
+    logger.error(
+      `Uploads directory ${fullPath} is missing or not writable by uid ${process.getuid?.() ?? 'n/a'}. ` +
+        'On Docker fix with: docker compose run --rm --user root api chown -R node:node /app/uploads',
+      err
+    );
   }
 });
 
@@ -27,7 +43,14 @@ const ALLOWED_TYPES: Record<string, string[]> = {
 const storage = multer.diskStorage({
   destination: (_req, file, cb) => {
     const fieldDir = file.fieldname === 'logo' ? 'logos' : 'signatures';
-    cb(null, path.join(uploadsDir, fieldDir));
+    const fullPath = path.join(uploadsDir, fieldDir);
+    try {
+      // Re-check per request: the volume may have been (re)mounted since boot.
+      ensureWritable(fullPath);
+      cb(null, fullPath);
+    } catch (err) {
+      cb(err as Error, fullPath);
+    }
   },
   filename: (_req, file, cb) => {
     // Derive the extension from the declared mimetype, never from the client

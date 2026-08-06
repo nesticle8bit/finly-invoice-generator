@@ -2,7 +2,6 @@ import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import multer from 'multer';
-import path from 'path';
 
 import { env } from './config/env';
 import { pool } from './config/database';
@@ -28,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Static files (uploaded logos/signatures). The sandbox CSP neutralises active
 // content in anything that slipped past the upload filter.
-const uploadsDir = path.join(process.cwd(), env.uploadDir);
+const uploadsDir = env.uploadDir;
 app.use(
   '/uploads',
   (_req, res, next) => {
@@ -76,6 +75,15 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   // Upload filter rejections carry a safe, user-facing message.
   if (err.message?.startsWith('Only ') || err.message?.startsWith('File extension')) {
     res.status(400).json({ error: err.message });
+    return;
+  }
+
+  // Storage failures used to surface as a bare "Internal server error" with no
+  // clue that the uploads volume was the problem. Name it, on both sides.
+  const code = (err as NodeJS.ErrnoException).code;
+  if (code === 'EACCES' || code === 'EPERM' || code === 'ENOENT' || code === 'ENOSPC' || code === 'EROFS') {
+    logger.error('Upload storage failure', { code, path: (err as NodeJS.ErrnoException).path, uploadDir: env.uploadDir });
+    res.status(500).json({ error: 'Upload storage is unavailable — check the server uploads directory' });
     return;
   }
 
