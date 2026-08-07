@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { register, login, me } from '../controllers/auth.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { rateLimit } from '../middleware/rate-limit.middleware';
+import { validateBody } from '../middleware/validate.middleware';
+import { loginSchema, registerSchema } from '../validation/schemas';
 
 const router = Router();
 
@@ -18,8 +20,8 @@ const registerLimiter = rateLimit({
   message: 'Too many registration attempts. Please try again later.',
 });
 
-router.post('/register', registerLimiter, register);
-router.post('/login', loginLimiter, login);
+router.post('/register', registerLimiter, validateBody(registerSchema), register);
+router.post('/login', loginLimiter, validateBody(loginSchema), login);
 router.get('/me', authMiddleware, me);
 
 export default router;

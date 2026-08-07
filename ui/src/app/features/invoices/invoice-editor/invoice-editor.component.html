@@ -26,6 +26,11 @@
           <input id="invoice-editor-date" type="date" formControlName="date" class="input-field" />
         </div>
         <div>
+          <label for="invoice-editor-due-date" class="label">Due Date</label>
+          <input id="invoice-editor-due-date" type="date" formControlName="due_date" class="input-field" />
+          <p class="mt-1 text-xs text-slate-400">Optional. Unpaid invoices past this date show as overdue.</p>
+        </div>
+        <div>
           <label for="invoice-editor-client" class="label">Client</label>
           <select id="invoice-editor-client" formControlName="client_id" class="input-field">
             <option value="">— Select client —</option>

@@ -127,10 +127,16 @@
                 <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">N°</div>
                 <div style="font-size:15px; font-weight:700; color:#111827;">{{ invoice()?.invoice_number }}</div>
               </div>
-              <div>
+              <div style="margin-bottom:4px;">
                 <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">Date</div>
                 <div style="font-size:13px; font-weight:700; color:#111827;">{{ invoice()?.date | date: "MMMM dd, yyyy" }}</div>
               </div>
+              @if (invoice()?.due_date) {
+                <div>
+                  <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">Due</div>
+                  <div style="font-size:13px; font-weight:700; color:#111827;">{{ invoice()?.due_date | date: "MMMM dd, yyyy" }}</div>
+                </div>
+              }
             </div>
           </div>
 

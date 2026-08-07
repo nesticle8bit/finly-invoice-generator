@@ -16,6 +16,7 @@ The first registered user becomes the owner; everyone after that needs an invita
 | Backend | Express.js + TypeScript |
 | Database | PostgreSQL |
 | Authentication | JWT (jsonwebtoken + bcryptjs) |
+| Validation | Zod (every request body and `:id` param) |
 | PDF Generation | Puppeteer (HTML → PDF, single reused browser) |
 | File Uploads | Multer |
 | Testing | `node:test` + supertest (API), Karma + Jasmine (UI) |
@@ -39,11 +40,15 @@ invoice-generator/
 │   │   │   ├── env.ts            # Validates env vars, exits if JWT_SECRET is weak
 │   │   │   ├── database.ts       # PostgreSQL connection pool
 │   │   │   ├── logger.ts         # JSON logs in production, plain text in dev
-│   │   │   └── migrate.ts        # Migration script (tables, indexes, constraints)
+│   │   │   ├── migrate.ts        # Migration runner (boot + CLI, tracks applied ids)
+│   │   │   └── migrations.ts     # Ordered, append-only migration list
 │   │   ├── middleware/
 │   │   │   ├── auth.middleware.ts
 │   │   │   ├── rate-limit.middleware.ts
-│   │   │   └── upload.middleware.ts
+│   │   │   ├── upload.middleware.ts
+│   │   │   └── validate.middleware.ts
+│   │   ├── validation/
+│   │   │   └── schemas.ts        # Zod schemas for every request body
 │   │   ├── routes/
 │   │   │   ├── auth.routes.ts
 │   │   │   ├── invoices.routes.ts
@@ -61,9 +66,11 @@ invoice-generator/
 │   │   ├── services/
 │   │   │   └── pdf.service.ts    # Puppeteer PDF generation
 │   │   ├── utils/
+│   │   │   ├── money.ts          # Cent rounding (+ unit tests)
 │   │   │   ├── pagination.ts     # Clamps page/limit (+ unit tests)
 │   │   │   └── wp.ts             # Work Package tag parsing (+ unit tests)
-│   │   ├── test/                 # Integration tests (auth, invoices, share)
+│   │   ├── test/                 # Integration tests (auth, invoices, clients,
+│   │   │                         # profile, invite codes, share links)
 │   │   ├── app.ts                # Express app — importable by tests
 │   │   └── index.ts              # Server bootstrap + graceful shutdown
 │   ├── eslint.config.js
@@ -76,6 +83,7 @@ invoice-generator/
     │   ├── app/
     │   │   ├── core/
     │   │   │   ├── models/index.ts
+    │   │   │   ├── utils/money.ts   # Cent rounding, mirrors the API util
     │   │   │   ├── services/
     │   │   │   │   ├── auth.service.ts
     │   │   │   │   ├── invoice.service.ts
@@ -90,6 +98,7 @@ invoice-generator/
     │   │   ├── shared/
     │   │   │   ├── confirm/        # Accessible confirm dialog (replaces window.confirm)
     │   │   │   ├── money/          # Currency-aware amount pipe
+    │   │   │   ├── toast/          # Toast stack (pause on hover, countdown bar)
     │   │   │   └── skeleton/       # Loading placeholders
     │   │   ├── layout/
     │   │   │   ├── shell/          # Responsive shell with off-canvas menu
@@ -153,15 +162,29 @@ UPLOAD_DIR=uploads
 > than 32 characters, or a known-weak value such as `secret`. Generate one with:
 > `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
 
-Run migrations (creates tables, indexes and constraints):
+Migrations apply themselves. The API runs whatever is pending **before it starts
+listening**, so a build can never serve traffic against a schema it does not
+match. If a migration fails the process logs the reason and exits instead of
+starting; `AUTO_MIGRATE=false` opts out when an external tool owns the schema.
+
+To apply them by hand — before a deploy, or against a fresh database:
 
 ```bash
 npm run migrate
 ```
 
-> The migration creates a unique index on `(user_id, invoice_number)`. If the table
-> already holds duplicate numbers, the script lists them and stops so you can
-> renumber them first.
+Migrations are an ordered list in `src/config/migrations.ts`, each with an id.
+Applied ids are recorded in a `schema_migrations` table, so only what is pending
+runs and both entry points are safe to re-run. Each migration runs in its own
+transaction, and a session advisory lock keeps two runners — or two booting
+instances — from racing.
+
+To change the schema, **append** a new entry — never edit one that has already
+been applied.
+
+> The `0003_unique_invoice_number` migration creates a unique index on
+> `(user_id, invoice_number)`. If the table already holds duplicate numbers, the
+> runner lists them and stops so you can renumber them first.
 
 Start in dev mode:
 
@@ -232,9 +255,19 @@ misconfigured deploy stops before the containers start.
 docker compose up -d --build
 ```
 
-**5. Run migrations (first time only)**
+**5. Migrations**
+
+Nothing to do — the API container applies pending migrations on boot. A failure keeps it
+from serving, so check the logs if it restarts:
+
 ```bash
-docker compose exec api node dist/config/migrate.js
+docker compose logs api | grep -i migration
+```
+
+To apply them without starting the API (`AUTO_MIGRATE=false` deployments):
+
+```bash
+docker compose run --rm api node dist/config/migrate.js
 ```
 
 **6. Check everything is running**
@@ -283,9 +316,18 @@ docker compose down                 # Stop everything
 |-----------|--------|-------|
 | `page` | integer | Defaults to `1`; junk values fall back instead of erroring |
 | `limit` | 1–100 | Defaults to `20`, capped at `100` |
-| `sort` | `invoice_number` · `client_name` · `date` · `status` · `total` · `created_at` | Whitelisted; anything else falls back to `created_at` |
+| `sort` | `invoice_number` · `client_name` · `date` · `due_date` · `status` · `total` · `created_at` | Whitelisted; anything else falls back to `created_at` |
 | `order` | `asc` · `desc` | Defaults to `desc` |
 | `status` · `search` · `client_id` · `date_from` · `date_to` · `is_template` | — | Filters |
+| `overdue` | `true` | Only unpaid invoices past their `due_date` |
+
+> `due_date` is optional. Overdue is **derived**, never stored: rows come back with
+> an `is_overdue` flag computed from `due_date`, `status` and today's date, so an
+> invoice becomes overdue with the calendar rather than with an edit.
+>
+> Every request body is validated by a Zod schema before it reaches a controller
+> (`src/validation/schemas.ts`). A malformed body is a `400` with an `error` string
+> and a `details` map keyed by field.
 
 ### System
 
@@ -338,11 +380,16 @@ docker compose down                 # Stop everything
 users                – Login credentials
 profiles             – Personal info, bank details, logo & signature paths
 clients              – Companies being billed
-invoices             – Invoice header (number, date, status, total)
+invoices             – Invoice header (number, date, due_date, status, total)
 invoice_items        – Line items (description, hours, rate, amount)
 invoice_share_tokens – Password-protected share links for WP entry
 invitation_codes     – Single-use codes for registering after the first user
+schema_migrations    – Ids of the migrations already applied
 ```
+
+Money lives in `DECIMAL(10,2)`. Both sides round every line to cents and total the
+rounded lines (`api/src/utils/money.ts`, `ui/src/app/core/utils/money.ts`), so the
+stored total always equals what the printed rows add up to.
 
 ### Constraints & indexes
 
@@ -350,6 +397,7 @@ invitation_codes     – Single-use codes for registering after the first user
 UNIQUE (user_id, invoice_number)   – no duplicate invoice numbers per user
 INDEX  (user_id, date DESC)        – backs the default list ordering
 INDEX  (user_id, status)           – backs the status filter
+INDEX  (user_id, due_date)         – partial, status <> 'paid'; backs the overdue lookup
 ```
 
 ### Relationships
@@ -370,11 +418,14 @@ invoices ──< invoice_share_tokens  (1:1)
 ### Dashboard
 - Counters: total, draft, sent, and paid invoices
 - Total revenue and current month revenue
+- Overdue count and amount, linking straight to the filtered list
 - Last 5 invoices with quick access links
 
 ### Invoices
 - Auto-incremented number with 4-digit padding (`0075`, `0076` …), unique per user
 - Status workflow: `draft` → `sent` → `paid`
+- Optional due date; unpaid invoices past it are flagged overdue in the list, on the
+  dashboard and through the `overdue=true` filter
 - Dynamic line items: description, hours, rate, calculated amount
 - Work period (start/end date used in notes)
 - On-screen preview identical to the generated PDF
@@ -409,11 +460,13 @@ invoices ──< invoice_share_tokens  (1:1)
   editor: `Ctrl+Enter` save, `Ctrl+I` add item, `Enter` on the last description adds a row
 - Accessible confirm dialog instead of `window.confirm`, labelled form controls and
   visible keyboard focus throughout
+- Toasts carry a countdown bar and pause while hovered or focused; repeated messages
+  refresh a single toast instead of stacking
 
 ### PDF Format
 - Logo or initials (top left)
 - Personal info (top right)
-- Bill To + invoice number / date
+- Bill To + invoice number / date / due date
 - Task table with hours, rate, and amount
 - Highlighted total
 - SWIFT/BIC and IBAN
@@ -437,6 +490,7 @@ invoices ──< invoice_share_tokens  (1:1)
 | `JWT_SECRET` | **Required.** Min 32 chars — the API exits if missing or weak | - |
 | `JWT_EXPIRES_IN` | Token lifetime | `7d` |
 | `CORS_ORIGINS` | Comma-separated allowed origins; empty in production behind nginx | dev localhost |
+| `AUTO_MIGRATE` | Apply pending migrations on boot; `false` starts without touching the schema | `true` |
 | `UPLOAD_DIR` | Upload directory | `uploads` |
 | `MAX_FILE_SIZE` | Max upload size in bytes | `5242880` |
 
@@ -446,6 +500,15 @@ invoices ──< invoice_share_tokens  (1:1)
 
 - **Fail-fast configuration** — the API refuses to boot without a strong `JWT_SECRET`;
   there are no insecure fallbacks anywhere in the codebase.
+- **Input validation** — every request body is parsed by a Zod schema before it reaches a
+  controller, and `:id` params must be numeric. Handlers work on typed, trimmed and
+  bounded data, so malformed input is a `400` instead of a database error or a `NaN` in a
+  `DECIMAL` column. The login schema deliberately skips the password policy: enforcing it
+  there would answer with a `400` before the `401` and tell an attacker their guess could
+  not have been the stored password.
+- **Ownership on write** — a `client_id` in a request body is checked against the caller's
+  own clients inside the transaction, so an invoice cannot be attached to (or leak the name
+  of) another account's client.
 - **Rate limiting** — 10 login attempts / 15 min, 5 registrations / hour, and 10 share-link
   password attempts / 15 min, all per IP.
 - **Uploads** — JPEG, PNG, GIF and WebP only. SVG is rejected because uploads are served
@@ -466,15 +529,18 @@ invoices ──< invoice_share_tokens  (1:1)
 ## Testing & CI
 
 ```bash
-# API — 36 tests. Integration tests skip automatically without a database.
+# API — 77 tests. Integration tests skip automatically without a database.
 cd api
 npm run lint && npm run typecheck && npm test
-npm run test:unit          # pure unit tests only, no database needed
+npm run test:unit          # 25 pure unit tests (money, pagination, WP, schemas)
 
-# UI — 21 tests (Karma + Jasmine, headless)
+# UI — 26 tests (Karma + Jasmine, headless)
 cd ui
 npm run lint && npm test
 ```
+
+> The integration suite calls `TRUNCATE` on every table before it runs. Point `DB_NAME` at a
+> throwaway database — never at the one holding real invoices.
 
 `.github/workflows/ci.yml` runs both suites on every push and pull request, spinning up a
 PostgreSQL 16 service so the API integration tests actually execute.
@@ -489,7 +555,7 @@ PostgreSQL 16 service so the API integration tests actually execute.
 npm run dev           # Development with hot-reload (ts-node-dev)
 npm run build         # Compile TypeScript to dist/
 npm start             # Run compiled build
-npm run migrate       # Create / update tables, indexes and constraints
+npm run migrate       # Apply pending migrations by hand (also runs on API boot)
 npm test              # Unit + integration tests
 npm run test:unit     # Unit tests only (no database required)
 npm run typecheck     # tsc --noEmit

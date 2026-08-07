@@ -9,6 +9,7 @@ import { ClientService } from "../../../core/services/client.service";
 import { ProfileService } from "../../../core/services/profile.service";
 import { ToastService } from "../../../core/services/toast.service";
 import { Client, InvoiceInput, InvoiceItemInput, Profile } from "../../../core/models";
+import { lineAmount, sumLineAmounts } from "../../../core/utils/money";
 import { merge } from "rxjs";
 
 @Component({
@@ -42,6 +43,7 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
   form: FormGroup = this.fb.group({
     invoice_number: ["", Validators.required],
     date: [new Date().toISOString().split("T")[0], Validators.required],
+    due_date: [""],
     client_id: [""],
     status: ["draft"],
     period_start: [""],
@@ -103,6 +105,7 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
         this.form.patchValue({
           invoice_number: inv.invoice_number,
           date: inv.date?.split("T")[0] || inv.date,
+          due_date: inv.due_date?.split("T")[0] || "",
           client_id: inv.client_id || "",
           status: inv.status,
           period_start: inv.period_start?.split("T")[0] || "",
@@ -142,10 +145,12 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
     return {
       ...value,
       client_id: value.client_id || null,
+      // An empty date input is '', which the API reads as an invalid date.
+      due_date: value.due_date || null,
       items: items.map((item) => {
         const hours = item.hours ?? 0;
         const rate = item.rate ?? 0;
-        return { description: item.description ?? "", hours, rate, amount: hours * rate };
+        return { description: item.description ?? "", hours, rate, amount: lineAmount(hours, rate) };
       }),
     };
   }
@@ -233,14 +238,13 @@ export class InvoiceEditorComponent implements OnInit, OnDestroy {
 
   getItemAmount(index: number): number {
     const item = this.itemsArray.at(index).value;
-    return (item.hours || 0) * (item.rate || 0);
+    return lineAmount(item.hours, item.rate);
   }
 
   getTotal(): number {
-    return this.itemsArray.controls.reduce((sum, ctrl) => {
-      const v = ctrl.value;
-      return sum + (v.hours || 0) * (v.rate || 0);
-    }, 0);
+    return sumLineAmounts(
+      this.itemsArray.controls.map((ctrl) => ({ hours: ctrl.value.hours || 0, rate: ctrl.value.rate || 0 }))
+    );
   }
 
   importTasks(): void {

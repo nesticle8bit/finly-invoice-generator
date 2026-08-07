@@ -12,6 +12,8 @@ import {
   getMonthlyStats,
 } from '../controllers/invoices.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { validateBody, validateParams } from '../middleware/validate.middleware';
+import { createInvoiceSchema, idParamSchema, updateInvoiceSchema } from '../validation/schemas';
 
 const router = Router();
 
@@ -21,11 +23,11 @@ router.get('/stats', getDashboardStats);
 router.get('/monthly-stats', getMonthlyStats);
 router.get('/next-number', getNextNumber);
 router.get('/', listInvoices);
-router.get('/:id', getInvoice);
-router.get('/:id/pdf', downloadPDF);
-router.post('/', createInvoice);
-router.post('/:id/duplicate', duplicateInvoice);
-router.put('/:id', updateInvoice);
-router.delete('/:id', deleteInvoice);
+router.get('/:id', validateParams(idParamSchema), getInvoice);
+router.get('/:id/pdf', validateParams(idParamSchema), downloadPDF);
+router.post('/', validateBody(createInvoiceSchema), createInvoice);
+router.post('/:id/duplicate', validateParams(idParamSchema), duplicateInvoice);
+router.put('/:id', validateParams(idParamSchema), validateBody(updateInvoiceSchema), updateInvoice);
+router.delete('/:id', validateParams(idParamSchema), deleteInvoice);
 
 export default router;

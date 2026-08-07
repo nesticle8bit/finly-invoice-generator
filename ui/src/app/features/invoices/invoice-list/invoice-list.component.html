@@ -91,6 +91,22 @@
             [class.border-slate-200]="selectedStatus() !== s.value"
           >{{ s.label }}</button>
         }
+
+        <!-- Overdue is not a status: an invoice is still 'sent', just late. -->
+        <button
+          (click)="toggleOverdue()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-150"
+          [attr.aria-pressed]="showOverdue()"
+          [class.bg-red-600]="showOverdue()"
+          [class.text-white]="showOverdue()"
+          [class.border-red-600]="showOverdue()"
+          [class.bg-white]="!showOverdue()"
+          [class.text-red-600]="!showOverdue()"
+          [class.border-red-200]="!showOverdue()"
+        >
+          <i class="ti ti-alert-circle text-sm"></i>
+          Overdue
+        </button>
       </div>
     }
   </div>
@@ -179,13 +195,23 @@
                 </td>
                 <td class="px-6 py-3.5">
                   <span class="text-sm text-slate-500">{{ inv.date | date:'MMM d, y' }}</span>
+                  @if (inv.due_date) {
+                    <span class="block text-xs" [class.text-red-600]="inv.is_overdue" [class.text-slate-400]="!inv.is_overdue">
+                      Due {{ inv.due_date | date:'MMM d, y' }}
+                    </span>
+                  }
                 </td>
                 <td class="px-6 py-3.5">
-                  <span [ngClass]="{
-                    'badge-paid': inv.status === 'paid',
-                    'badge-sent': inv.status === 'sent',
-                    'badge-draft': inv.status === 'draft'
-                  }">{{ inv.status }}</span>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span [ngClass]="{
+                      'badge-paid': inv.status === 'paid',
+                      'badge-sent': inv.status === 'sent',
+                      'badge-draft': inv.status === 'draft'
+                    }">{{ inv.status }}</span>
+                    @if (inv.is_overdue) {
+                      <span class="badge-overdue">Overdue</span>
+                    }
+                  </div>
                 </td>
                 <td class="px-6 py-3.5 text-right">
                   <span class="text-sm font-bold text-slate-900">{{ inv.total | money }}</span>

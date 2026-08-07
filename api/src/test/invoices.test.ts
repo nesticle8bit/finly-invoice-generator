@@ -125,6 +125,76 @@ describe('GET /api/invoices/next-number', () => {
   });
 });
 
+describe('money', () => {
+  test('the stored total equals the sum of the stored line amounts', async (t) => {
+    if (!dbUp) return t.skip('no database');
+
+    const res = await auth(request(app).post('/api/invoices')).send({
+      invoice_number: '0500',
+      date: '2026-05-01',
+      items: [
+        { description: 'One', hours: 1.335, rate: 25 },
+        { description: 'Two', hours: 2.665, rate: 25 },
+      ],
+    });
+
+    assert.equal(res.status, 201);
+
+    const lines = res.body.items.reduce((sum: number, i: { amount: string }) => sum + Number(i.amount), 0);
+    assert.equal(Number(res.body.total), lines, 'raw float products would drift by a cent');
+    assert.equal(Number(res.body.total), 100.01);
+  });
+});
+
+describe('due dates', () => {
+  test('an invoice past its due date and still unpaid reads as overdue', async (t) => {
+    if (!dbUp) return t.skip('no database');
+
+    const created = await auth(request(app).post('/api/invoices')).send({
+      invoice_number: '0501',
+      date: '2026-05-01',
+      due_date: '2020-01-01',
+      status: 'sent',
+      items: sampleItems,
+    });
+    assert.equal(created.status, 201);
+
+    const res = await auth(request(app).get(`/api/invoices/${created.body.id}`));
+    assert.equal(res.body.is_overdue, true);
+
+    const filtered = await auth(request(app).get('/api/invoices?overdue=true'));
+    assert.ok(
+      filtered.body.data.some((i: { id: number }) => i.id === created.body.id),
+      'the overdue filter must return it'
+    );
+  });
+
+  test('paying it clears the overdue flag', async (t) => {
+    if (!dbUp) return t.skip('no database');
+
+    const list = await auth(request(app).get('/api/invoices?search=0501'));
+    const id = list.body.data[0].id;
+
+    await auth(request(app).put(`/api/invoices/${id}`)).send({ status: 'paid' });
+
+    const res = await auth(request(app).get(`/api/invoices/${id}`));
+    assert.equal(res.body.is_overdue, false);
+  });
+
+  test('an unparseable due date is refused', async (t) => {
+    if (!dbUp) return t.skip('no database');
+
+    const res = await auth(request(app).post('/api/invoices')).send({
+      invoice_number: '0502',
+      date: '2026-05-01',
+      due_date: 'whenever',
+      items: sampleItems,
+    });
+
+    assert.equal(res.status, 400);
+  });
+});
+
 describe('ownership', () => {
   test('another user cannot read this user invoices', async (t) => {
     if (!dbUp) return t.skip('no database');
@@ -148,5 +218,41 @@ describe('ownership', () => {
       .set('Authorization', `Bearer ${intruder.body.token}`);
 
     assert.equal(res.status, 404);
+  });
+
+  test('an invoice cannot be attached to another user client', async (t) => {
+    if (!dbUp) return t.skip('no database');
+
+    const owner = await pool.query('SELECT id FROM users ORDER BY id LIMIT 1');
+    await pool.query('INSERT INTO invitation_codes (code, created_by) VALUES ($1, $2)', [
+      'IDORTEST',
+      owner.rows[0].id,
+    ]);
+
+    const stranger = await request(app).post('/api/auth/register').send({
+      name: 'Stranger',
+      email: uniqueEmail('stranger'),
+      password: 'secret123',
+      invite_code: 'IDORTEST',
+    });
+
+    const theirClient = await request(app)
+      .post('/api/clients')
+      .set('Authorization', `Bearer ${stranger.body.token}`)
+      .send({ name: 'Private Client Ltd' });
+
+    // Without the ownership check this succeeded, and the response echoed back
+    // the other account's client name through the JOIN.
+    const res = await auth(request(app).post('/api/invoices')).send({
+      invoice_number: '0600',
+      date: '2026-06-01',
+      client_id: theirClient.body.id,
+      items: sampleItems,
+    });
+
+    assert.equal(res.status, 400);
+
+    const leaked = await pool.query('SELECT id FROM invoices WHERE invoice_number = $1', ['0600']);
+    assert.equal(leaked.rows.length, 0, 'the rejected invoice must not have been written');
   });
 });

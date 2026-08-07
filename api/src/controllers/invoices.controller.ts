@@ -1,12 +1,32 @@
 import { Response } from 'express';
+import type { PoolClient } from 'pg';
+import { z } from 'zod';
 import { query, pool } from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { generateInvoicePDF } from '../services/pdf.service';
 import { parsePagination } from '../utils/pagination';
+import { lineAmount, sumLineAmounts } from '../utils/money';
+import { createInvoiceSchema, updateInvoiceSchema } from '../validation/schemas';
 import { logger } from '../config/logger';
 
 /** Postgres unique_violation — a duplicate invoice number for this user. */
 const UNIQUE_VIOLATION = '23505';
+
+type CreateInvoiceBody = z.infer<typeof createInvoiceSchema>;
+type UpdateInvoiceBody = z.infer<typeof updateInvoiceSchema>;
+
+/**
+ * A client_id from the request body is attacker-supplied. Without this check an
+ * invoice could be attached to someone else's client, and the JOIN would then
+ * hand that client's name back in the response.
+ */
+async function ownsClient(client: PoolClient, userId: number, clientId: number): Promise<boolean> {
+  const result = await client.query('SELECT 1 FROM clients WHERE id = $1 AND user_id = $2', [
+    clientId,
+    userId,
+  ]);
+  return (result.rowCount ?? 0) > 0;
+}
 
 /**
  * Sortable columns, mapped to SQL. A whitelist is mandatory here: ORDER BY
@@ -15,11 +35,15 @@ const UNIQUE_VIOLATION = '23505';
 const SORT_COLUMNS: Record<string, string> = {
   invoice_number: 'i.invoice_number',
   date: 'i.date',
+  due_date: 'i.due_date',
   status: 'i.status',
   total: 'i.total',
   client_name: 'c.name',
   created_at: 'i.created_at',
 };
+
+/** Overdue is derived, never stored: it changes with the calendar, not an edit. */
+const IS_OVERDUE = `(i.due_date IS NOT NULL AND i.status <> 'paid' AND i.due_date < CURRENT_DATE)`;
 
 function resolveSort(rawSort: unknown, rawOrder: unknown): string {
   const column = SORT_COLUMNS[String(rawSort ?? '')] ?? 'i.created_at';
@@ -28,13 +52,14 @@ function resolveSort(rawSort: unknown, rawOrder: unknown): string {
 }
 
 export async function listInvoices(req: AuthRequest, res: Response): Promise<void> {
-  const { status, search, client_id, date_from, date_to, is_template } = req.query;
+  const { status, search, client_id, date_from, date_to, is_template, overdue } = req.query;
   const { page, limit, offset } = parsePagination(req.query.page, req.query.limit);
 
   try {
     let sql = `
-      SELECT i.id, i.invoice_number, i.date, i.status, i.total, i.created_at,
-             i.sent_at, i.is_template, c.name as client_name
+      SELECT i.id, i.invoice_number, i.date, i.due_date, i.status, i.total, i.created_at,
+             i.sent_at, i.is_template, c.name as client_name,
+             ${IS_OVERDUE} AS is_overdue
       FROM invoices i
       LEFT JOIN clients c ON c.id = i.client_id
       WHERE i.user_id = $1
@@ -72,6 +97,10 @@ export async function listInvoices(req: AuthRequest, res: Response): Promise<voi
       params.push(date_to);
     }
 
+    if (overdue === 'true') {
+      sql += ` AND ${IS_OVERDUE}`;
+    }
+
     if (search) {
       sql += ` AND (i.invoice_number ILIKE $${paramIdx} OR c.name ILIKE $${paramIdx})`;
       params.push(`%${search}%`);
@@ -104,7 +133,8 @@ export async function getInvoice(req: AuthRequest, res: Response): Promise<void>
       `SELECT i.*, c.name as client_name, c.address as client_address,
               c.city as client_city, c.postal_code as client_postal_code,
               c.vat as client_vat, c.email as client_email,
-              c.currency as client_currency
+              c.currency as client_currency,
+              ${IS_OVERDUE} AS is_overdue
        FROM invoices i
        LEFT JOIN clients c ON c.id = i.client_id
        WHERE i.id = $1 AND i.user_id = $2`,
@@ -149,17 +179,8 @@ export async function getNextNumber(req: AuthRequest, res: Response): Promise<vo
 }
 
 export async function createInvoice(req: AuthRequest, res: Response): Promise<void> {
-  const { client_id, invoice_number, date, status, notes, period_start, period_end, items } = req.body;
-
-  if (!invoice_number || !date) {
-    res.status(400).json({ error: 'Invoice number and date are required' });
-    return;
-  }
-
-  if (!items || items.length === 0) {
-    res.status(400).json({ error: 'At least one item is required' });
-    return;
-  }
+  const { client_id, invoice_number, date, due_date, status, notes, period_start, period_end, items } =
+    req.body as CreateInvoiceBody;
 
   // A real transaction needs one dedicated connection — issuing BEGIN through
   // the pool ran each statement on an arbitrary connection, so nothing was
@@ -168,14 +189,18 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
   try {
     await client.query('BEGIN');
 
-    // Calculate totals
-    const total = items.reduce((sum: number, item: { hours: number; rate: number }) =>
-      sum + item.hours * item.rate, 0);
+    if (client_id != null && !(await ownsClient(client, req.userId!, client_id))) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ error: 'Unknown client' });
+      return;
+    }
+
+    const total = sumLineAmounts(items);
 
     const invoiceResult = await client.query(
-      `INSERT INTO invoices (user_id, client_id, invoice_number, date, status, total, subtotal, notes, period_start, period_end)
-       VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9) RETURNING *`,
-      [req.userId, client_id || null, invoice_number, date, status || 'draft', total, notes, period_start, period_end]
+      `INSERT INTO invoices (user_id, client_id, invoice_number, date, due_date, status, total, subtotal, notes, period_start, period_end)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9, $10) RETURNING *`,
+      [req.userId, client_id ?? null, invoice_number, date, due_date ?? null, status || 'draft', total, notes, period_start, period_end]
     );
 
     const invoice = invoiceResult.rows[0];
@@ -183,11 +208,10 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
     // Insert items
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      const amount = item.hours * item.rate;
       await client.query(
         `INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [invoice.id, item.description, item.hours, item.rate, amount, i]
+        [invoice.id, item.description, item.hours, item.rate, lineAmount(item.hours, item.rate), i]
       );
     }
 
@@ -218,7 +242,8 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
 
 export async function updateInvoice(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const { client_id, invoice_number, date, status, notes, period_start, period_end, items, is_template } = req.body;
+  const { client_id, invoice_number, date, due_date, status, notes, period_start, period_end, items, is_template } =
+    req.body as UpdateInvoiceBody;
 
   const client = await pool.connect();
   try {
@@ -231,9 +256,13 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
 
     await client.query('BEGIN');
 
-    const total = items
-      ? items.reduce((sum: number, item: { hours: number; rate: number }) => sum + item.hours * item.rate, 0)
-      : undefined;
+    if (client_id != null && !(await ownsClient(client, req.userId!, client_id))) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ error: 'Unknown client' });
+      return;
+    }
+
+    const total = items ? sumLineAmounts(items) : undefined;
 
     // Set sent_at when transitioning to 'sent' for the first time
     const sentAtClause = status === 'sent'
@@ -252,20 +281,20 @@ export async function updateInvoice(req: AuthRequest, res: Response): Promise<vo
          total = COALESCE($8, total),
          subtotal = COALESCE($8, subtotal),
          is_template = COALESCE($10, is_template),
+         due_date = COALESCE($11, due_date),
          updated_at = NOW()${sentAtClause}
        WHERE id = $9`,
-      [client_id, invoice_number, date, status, notes, period_start, period_end, total, id, is_template ?? null]
+      [client_id, invoice_number, date, status, notes, period_start, period_end, total, id, is_template ?? null, due_date ?? null]
     );
 
     if (items) {
       await client.query('DELETE FROM invoice_items WHERE invoice_id = $1', [id]);
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const amount = item.hours * item.rate;
         await client.query(
           `INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order)
            VALUES ($1, $2, $3, $4, $5, $6)`,
-          [id, item.description, item.hours, item.rate, amount, i]
+          [id, item.description, item.hours, item.rate, lineAmount(item.hours, item.rate), i]
         );
       }
     }
@@ -366,6 +395,10 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
          COALESCE(SUM(total), 0) as total_revenue,
          COALESCE(SUM(CASE WHEN status = 'paid' THEN total END), 0) as paid_revenue,
          COALESCE(SUM(CASE WHEN status = 'sent' THEN total END), 0) as pending_revenue,
+         COUNT(CASE WHEN due_date IS NOT NULL AND status <> 'paid' AND due_date < CURRENT_DATE
+                    THEN 1 END) as overdue_invoices,
+         COALESCE(SUM(CASE WHEN due_date IS NOT NULL AND status <> 'paid' AND due_date < CURRENT_DATE
+                           THEN total END), 0) as overdue_revenue,
          COALESCE(ROUND(AVG(total)::numeric, 2), 0) as avg_invoice,
          COALESCE(SUM(CASE WHEN date_part('month', date) = date_part('month', NOW())
                            AND date_part('year', date) = date_part('year', NOW())
@@ -378,7 +411,8 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
     );
 
     const recent = await query(
-      `SELECT i.id, i.invoice_number, i.date, i.status, i.total, c.name as client_name
+      `SELECT i.id, i.invoice_number, i.date, i.due_date, i.status, i.total,
+              c.name as client_name, ${IS_OVERDUE} AS is_overdue
        FROM invoices i
        LEFT JOIN clients c ON c.id = i.client_id
        WHERE i.user_id = $1

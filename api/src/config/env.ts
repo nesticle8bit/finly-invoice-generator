@@ -43,6 +43,10 @@ export const env = {
   // Absolute from the start: multer resolved it against cwd while the static
   // handler joined it onto cwd itself, so a relative value meant two paths.
   uploadDir: path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads'),
+  // Pending migrations are applied at boot so a deploy cannot serve traffic
+  // against a schema it does not match. Opt out with AUTO_MIGRATE=false when an
+  // external tool owns the schema.
+  autoMigrate: process.env.AUTO_MIGRATE !== 'false',
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880', 10),
   db: {
     host: process.env.DB_HOST || 'localhost',

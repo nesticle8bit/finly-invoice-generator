@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, HostListener, computed, inject, OnInit, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe, CurrencyPipe, NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTooltip } from '@angular/material/tooltip';
@@ -30,6 +30,7 @@ export class InvoiceListComponent implements OnInit {
   private clientService = inject(ClientService);
   private profileService = inject(ProfileService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private toast = inject(ToastService);
   private confirmService = inject(ConfirmService);
 
@@ -40,6 +41,7 @@ export class InvoiceListComponent implements OnInit {
   search = '';
   selectedStatus = signal('');
   showTemplates = signal(false);
+  showOverdue = signal(false);
   selectedClientId = '';
   dateFrom = '';
   dateTo = '';
@@ -85,6 +87,8 @@ export class InvoiceListComponent implements OnInit {
 
   ngOnInit(): void {
     this.restoreSort();
+    // The dashboard links straight to the overdue subset.
+    if (this.route.snapshot.queryParamMap.get('overdue') === 'true') this.showOverdue.set(true);
     this.clientService.list().subscribe((clients) => this.clients.set(clients));
     this.profileService.get().subscribe();
     this.load();
@@ -157,6 +161,7 @@ export class InvoiceListComponent implements OnInit {
         date_from: this.dateFrom || undefined,
         date_to: this.dateTo || undefined,
         is_template: this.showTemplates() ? true : undefined,
+        overdue: this.showOverdue() ? true : undefined,
       })
       .subscribe({
         next: (res) => {
@@ -192,6 +197,11 @@ export class InvoiceListComponent implements OnInit {
   toggleTemplates(): void {
     this.showTemplates.update((v) => !v);
     this.selectedStatus.set('');
+    this.reload();
+  }
+
+  toggleOverdue(): void {
+    this.showOverdue.update((v) => !v);
     this.reload();
   }
 

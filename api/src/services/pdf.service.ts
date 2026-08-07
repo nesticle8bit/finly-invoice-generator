@@ -12,6 +12,7 @@ interface InvoiceItem {
 interface InvoiceData {
   invoice_number: string;
   date: string;
+  due_date?: string | null;
   client_name: string;
   client_address: string;
   client_city: string;
@@ -160,6 +161,11 @@ function buildInvoiceHTML(data: InvoiceData): string {
           <div class="label">Date</div>
           <div class="value">${formatDate(data.date)}</div>
         </div>
+        ${data.due_date ? `
+        <div class="field">
+          <div class="label">Due</div>
+          <div class="value">${formatDate(data.due_date)}</div>
+        </div>` : ''}
       </div>
     </div>
 

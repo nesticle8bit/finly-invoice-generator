@@ -49,11 +49,6 @@ export async function createShareLink(req: AuthRequest, res: Response): Promise<
   const { id } = req.params;
   const { password, expires_in_days } = req.body;
 
-  if (!password || password.length < 4) {
-    res.status(400).json({ error: 'Password must be at least 4 characters' });
-    return;
-  }
-
   try {
     // Check invoice exists, belongs to user and is draft
     const inv = await query(
@@ -140,11 +135,6 @@ export async function accessSharedInvoice(req: Request, res: Response): Promise<
   const { token } = req.params;
   const { password } = req.body;
 
-  if (!password) {
-    res.status(400).json({ error: 'Password is required' });
-    return;
-  }
-
   try {
     const shareRow = await resolveToken(token);
     if (!shareRow) {
@@ -197,10 +187,6 @@ export async function updateSharedWP(req: Request, res: Response): Promise<void>
   const { token } = req.params;
   const { password, session_token, items } = req.body;
 
-  if (!Array.isArray(items)) {
-    res.status(400).json({ error: 'Items array is required' });
-    return;
-  }
   if (!session_token && !password) {
     res.status(400).json({ error: 'A session token or password is required' });
     return;

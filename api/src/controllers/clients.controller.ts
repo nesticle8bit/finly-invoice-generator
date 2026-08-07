@@ -37,11 +37,6 @@ export async function getClient(req: AuthRequest, res: Response): Promise<void> 
 export async function createClient(req: AuthRequest, res: Response): Promise<void> {
   const { name, address, city, postal_code, country, vat, email, currency } = req.body;
 
-  if (!name) {
-    res.status(400).json({ error: 'Client name is required' });
-    return;
-  }
-
   try {
     const result = await query(
       `INSERT INTO clients (user_id, name, address, city, postal_code, country, vat, email, currency)

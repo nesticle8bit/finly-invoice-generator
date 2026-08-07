@@ -27,6 +27,7 @@ export class InvoiceService {
     date_from?: string;
     date_to?: string;
     is_template?: boolean;
+    overdue?: boolean;
     sort?: string;
     order?: 'asc' | 'desc';
   }): Observable<PaginatedResponse<Invoice>> {
@@ -41,6 +42,7 @@ export class InvoiceService {
     if (params?.date_from) httpParams = httpParams.set('date_from', params.date_from);
     if (params?.date_to) httpParams = httpParams.set('date_to', params.date_to);
     if (params?.is_template !== undefined) httpParams = httpParams.set('is_template', params.is_template.toString());
+    if (params?.overdue) httpParams = httpParams.set('overdue', 'true');
     return this.http.get<PaginatedResponse<Invoice>>(this.base, { params: httpParams });
   }
 

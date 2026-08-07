@@ -15,11 +15,6 @@ function signToken(userId: number, email: string): string {
 export async function register(req: Request, res: Response): Promise<void> {
   const { name, email, password, invite_code } = req.body;
 
-  if (!name || !email || !password) {
-    res.status(400).json({ error: 'Name, email and password are required' });
-    return;
-  }
-
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -82,11 +77,6 @@ export async function register(req: Request, res: Response): Promise<void> {
 
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    res.status(400).json({ error: 'Email and password are required' });
-    return;
-  }
 
   try {
     const result = await query(

@@ -61,6 +61,7 @@ export interface InvoiceItemInput {
 export interface InvoiceInput {
   invoice_number?: string;
   date?: string;
+  due_date?: string | null;
   status?: InvoiceStatus;
   notes?: string | null;
   period_start?: string | null;
@@ -74,6 +75,9 @@ export interface Invoice {
   id: number;
   invoice_number: string;
   date: string;
+  due_date: string | null;
+  /** Derived server-side from due_date and status — never stored. */
+  is_overdue?: boolean;
   status: InvoiceStatus;
   total: number;
   subtotal: number;
@@ -108,6 +112,8 @@ export interface DashboardStats {
   total_revenue: number;
   paid_revenue: number;
   pending_revenue: number;
+  overdue_invoices: number;
+  overdue_revenue: number;
   avg_invoice: number;
   month_revenue: number;
   last_month_revenue: number;

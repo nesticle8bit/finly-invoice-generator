@@ -1,170 +1,89 @@
-import { pool } from './database';
 import dotenv from 'dotenv';
+import { pool } from './database';
+import { migrations } from './migrations';
 
 dotenv.config();
 
-const schema = `
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+/** Arbitrary but fixed: two runners must never apply the same migration twice. */
+const ADVISORY_LOCK_KEY = 4242;
 
--- Users table
-CREATE TABLE IF NOT EXISTS users (
-  id SERIAL PRIMARY KEY,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+const CONTROL_TABLE = `
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  id VARCHAR(100) PRIMARY KEY,
+  applied_at TIMESTAMP NOT NULL DEFAULT NOW()
+)`;
 
--- User profiles (settings)
-CREATE TABLE IF NOT EXISTS profiles (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
-  vat VARCHAR(100),
-  phone VARCHAR(50),
-  logo_path VARCHAR(500),
-  signature_path VARCHAR(500),
-  swift VARCHAR(100),
-  iban VARCHAR(150),
-  bank_name VARCHAR(255),
-  default_rate DECIMAL(10,2) DEFAULT 25.00,
-  currency VARCHAR(10) DEFAULT 'EUR',
-  notes_template TEXT DEFAULT 'This invoice is for the total amount of hours worked.',
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Clients table
-CREATE TABLE IF NOT EXISTS clients (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL,
-  address TEXT,
-  city VARCHAR(255),
-  postal_code VARCHAR(50),
-  country VARCHAR(100),
-  vat VARCHAR(100),
-  email VARCHAR(255),
-  currency VARCHAR(10) DEFAULT NULL,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Invoices table
-CREATE TABLE IF NOT EXISTS invoices (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
-  invoice_number VARCHAR(20) NOT NULL,
-  date DATE NOT NULL,
-  status VARCHAR(50) DEFAULT 'draft',
-  subtotal DECIMAL(10,2) DEFAULT 0,
-  total DECIMAL(10,2) DEFAULT 0,
-  notes TEXT,
-  period_start DATE,
-  period_end DATE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Invoice items
-CREATE TABLE IF NOT EXISTS invoice_items (
-  id SERIAL PRIMARY KEY,
-  invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
-  description TEXT NOT NULL,
-  hours DECIMAL(10,2) NOT NULL DEFAULT 0,
-  rate DECIMAL(10,2) NOT NULL DEFAULT 0,
-  amount DECIMAL(10,2) NOT NULL DEFAULT 0,
-  item_order INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Share tokens (for collaborators to add WP numbers without an account)
-CREATE TABLE IF NOT EXISTS invoice_share_tokens (
-  id SERIAL PRIMARY KEY,
-  invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
-  token VARCHAR(64) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  expires_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Invitation codes (single-use, required for registration by non-first users)
-CREATE TABLE IF NOT EXISTS invitation_codes (
-  id SERIAL PRIMARY KEY,
-  code VARCHAR(20) UNIQUE NOT NULL,
-  created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  used_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invitation_codes(code);
-CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id);
-CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON invoice_items(invoice_id);
-CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);
-CREATE INDEX IF NOT EXISTS idx_share_tokens_token ON invoice_share_tokens(token);
-CREATE INDEX IF NOT EXISTS idx_share_tokens_invoice_id ON invoice_share_tokens(invoice_id);
--- The invoice list always filters by owner and sorts by date/status.
-CREATE INDEX IF NOT EXISTS idx_invoices_user_date ON invoices(user_id, date DESC);
-CREATE INDEX IF NOT EXISTS idx_invoices_user_status ON invoices(user_id, status);
-`;
-
-const alterations = `
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT NULL;
-ALTER TABLE invoices ADD COLUMN IF NOT EXISTS sent_at TIMESTAMP DEFAULT NULL;
-ALTER TABLE invoices ADD COLUMN IF NOT EXISTS is_template BOOLEAN DEFAULT FALSE;
-`;
-
-/**
- * Applied separately: it fails loudly if the table already holds duplicates,
- * and that needs a human decision rather than aborting the whole migration.
- */
-const constraints = `
-CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_user_number
-  ON invoices(user_id, invoice_number);
-`;
-
-const DUPLICATE_QUERY = `
-SELECT user_id, invoice_number, COUNT(*) AS copies
-FROM invoices
-GROUP BY user_id, invoice_number
-HAVING COUNT(*) > 1
-ORDER BY copies DESC`;
-
-async function migrate() {
-  const client = await pool.connect();
-  try {
-    console.log('🚀 Running database migrations...');
-    await client.query(schema);
-    await client.query(alterations);
-
-    try {
-      await client.query(constraints);
-    } catch {
-      const dupes = await client.query(DUPLICATE_QUERY);
-      console.error(
-        '\n⚠️  Could not create the unique index on (user_id, invoice_number).\n' +
-          '   Duplicate invoice numbers already exist:'
-      );
-      dupes.rows.forEach((r) =>
-        console.error(`   user ${r.user_id} → invoice ${r.invoice_number} (${r.copies} copies)`)
-      );
-      console.error('   Renumber them, then run `npm run migrate` again.\n');
-      process.exit(1);
-    }
-
-    console.log('✅ Migrations completed successfully!');
-  } catch (err) {
-    console.error('❌ Migration failed:', err);
-    process.exit(1);
-  } finally {
-    client.release();
-    await pool.end();
+export class MigrationError extends Error {
+  constructor(
+    readonly migrationId: string,
+    readonly cause: unknown
+  ) {
+    super(`Migration ${migrationId} failed: ${(cause as Error).message}`);
+    this.name = 'MigrationError';
   }
 }
 
-migrate();
+type Log = (message: string) => void;
+
+/**
+ * Applies every pending migration and returns how many ran. Throws on the first
+ * failure; the caller decides whether that is fatal.
+ *
+ * Leaves the pool open — the API calls this during boot and keeps using it.
+ */
+export async function runMigrations(log: Log = () => undefined): Promise<number> {
+  const client = await pool.connect();
+
+  try {
+    await client.query(CONTROL_TABLE);
+    // Held for the whole run: a second instance booting at the same time waits
+    // here instead of racing to apply the same migration.
+    await client.query('SELECT pg_advisory_lock($1)', [ADVISORY_LOCK_KEY]);
+
+    const applied = await client.query<{ id: string }>('SELECT id FROM schema_migrations');
+    const done = new Set(applied.rows.map((r) => r.id));
+    const pending = migrations.filter((m) => !done.has(m.id));
+
+    for (const migration of pending) {
+      try {
+        // One transaction per migration: a failure leaves the ones before it
+        // applied and recorded, so a re-run resumes instead of starting over.
+        await client.query('BEGIN');
+        await client.query(migration.sql);
+        await client.query('INSERT INTO schema_migrations (id) VALUES ($1)', [migration.id]);
+        await client.query('COMMIT');
+        log(`   ${migration.id} ... ok`);
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        log(`   ${migration.id} ... failed`);
+        if (migration.onError) await migration.onError(client).catch(() => undefined);
+        throw new MigrationError(migration.id, err);
+      }
+    }
+
+    return pending.length;
+  } finally {
+    await client.query('SELECT pg_advisory_unlock($1)', [ADVISORY_LOCK_KEY]).catch(() => undefined);
+    client.release();
+  }
+}
+
+/** `npm run migrate` — the standalone entry point. */
+async function main(): Promise<void> {
+  let failed = false;
+
+  try {
+    console.log('🚀 Running database migrations...');
+    const count = await runMigrations((line) => console.log(line));
+    console.log(count === 0 ? '✅ Already up to date.' : `✅ Applied ${count} migration(s).`);
+  } catch (err) {
+    console.error(`\n❌ ${(err as Error).message}`);
+    failed = true;
+  } finally {
+    await pool.end().catch(() => undefined);
+  }
+
+  if (failed) process.exit(1);
+}
+
+if (require.main === module) void main();
