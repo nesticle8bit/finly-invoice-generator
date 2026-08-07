@@ -52,6 +52,18 @@
 }
 
 @layer utilities {
+  /* Toast countdown. The duration is bound per toast, so it cannot live in the
+     Tailwind config as a fixed animation. */
+  .toast-progress {
+    transform-origin: left;
+    animation-name: toast-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  .toast-progress--paused {
+    animation-play-state: paused;
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
@@ -75,6 +87,11 @@
   summary:focus-visible {
     @apply outline-none ring-2 ring-primary-500 ring-offset-2 rounded;
   }
+}
+
+@keyframes toast-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }
 
 /* Invoice preview styles */
