@@ -75,138 +75,18 @@
       <div class="flex items-center justify-center h-64">
         <div class="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
-    } @else if (invoice()) {
-      <!-- A4 Paper -->
-      <div class="invoice-preview bg-white shadow-2xl w-[794px] min-h-[1123px] rounded-sm" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#1f2937;">
-        <div style="padding:48px 52px;">
-          <!-- Header -->
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:40px;">
-            <div>
-              @if (profile()?.logo_path) {
-                <img [src]="getLogoUrl()" alt="Logo" style="height:64px; width:auto; object-fit:contain;" />
-              } @else {
-                <div style="font-size:52px; font-weight:900; color:#06b6d4; letter-spacing:-2px; line-height:1;">
-                  {{ getUserInitials() }}
-                </div>
-              }
-            </div>
-            <div style="text-align:right; font-size:12px; color:#374151; line-height:1.7;">
-              <div style="font-size:14px; font-weight:700; color:#111827;">{{ profile()?.name }}</div>
-              @if (profile()?.vat) {
-                <div>VAT: {{ profile()?.vat }}</div>
-              }
-              @if (profile()?.email) {
-                <div>{{ profile()?.email }}</div>
-              }
-              @if (profile()?.phone) {
-                <div>{{ profile()?.phone }}</div>
-              }
-            </div>
-          </div>
-
-          <!-- Bill To + Invoice Info -->
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:40px;">
-            <div>
-              <div style="font-size:11px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px;">Bill To</div>
-              <div style="font-size:14px; font-weight:700; color:#111827; margin-bottom:4px;">{{ invoice()?.client_name }}</div>
-              @if (invoice()?.client_address) {
-                <div style="font-size:13px; color:#374151; line-height:1.7;">
-                  {{ invoice()?.client_address }}<br />
-                  @if (invoice()?.client_postal_code || invoice()?.client_city) {
-                    {{ invoice()?.client_postal_code }} {{ invoice()?.client_city }}<br />
-                  }
-                  @if (invoice()?.client_vat) {
-                    VAT: {{ invoice()?.client_vat }}
-                  }
-                </div>
-              }
-            </div>
-            <div style="text-align:right;">
-              <div style="font-size:28px; font-weight:800; color:#111827; margin-bottom:12px;">Invoice</div>
-              <div style="margin-bottom:4px;">
-                <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">N°</div>
-                <div style="font-size:15px; font-weight:700; color:#111827;">{{ invoice()?.invoice_number }}</div>
-              </div>
-              <div style="margin-bottom:4px;">
-                <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">Date</div>
-                <div style="font-size:13px; font-weight:700; color:#111827;">{{ invoice()?.date | date: "MMMM dd, yyyy" }}</div>
-              </div>
-              @if (invoice()?.due_date) {
-                <div>
-                  <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">Due</div>
-                  <div style="font-size:13px; font-weight:700; color:#111827;">{{ invoice()?.due_date | date: "MMMM dd, yyyy" }}</div>
-                </div>
-              }
-            </div>
-          </div>
-
-          <!-- Items Table -->
-          <table style="width:100%; border-collapse:collapse; margin-bottom:24px;">
-            <thead>
-              <tr>
-                <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:left;">Task Description</th>
-                <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:center;">Hours</th>
-                <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:center; white-space:nowrap;">Rate</th>
-                <th style="padding:10px 16px; font-size:10px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; border-bottom:2px solid #e5e7eb; text-align:right;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of invoice()?.items; track $index; let i = $index) {
-                <tr [style.background]="i % 2 === 0 ? '#f9fafb' : '#ffffff'">
-                  <td style="padding:10px 16px; font-size:12px; color:#374151; border-bottom:1px solid #f3f4f6;">{{ item.description }}</td>
-                  <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:center; border-bottom:1px solid #f3f4f6;">{{ item.hours }}</td>
-                  <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:center; white-space:nowrap; border-bottom:1px solid #f3f4f6;">{{ item.rate | money:invoiceCurrency() }}</td>
-                  <td style="padding:10px 16px; font-size:12px; color:#374151; text-align:right; border-bottom:1px solid #f3f4f6;">{{ item.amount | money:invoiceCurrency() }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-
-          <!-- Total -->
-          <div style="display:flex; justify-content:flex-end; margin-bottom:40px;">
-            <div style="display:flex; align-items:center; gap:24px;">
-              <span style="font-size:11px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase;">Total</span>
-              <span style="font-size:28px; font-weight:900; color:#6366f1;">{{ invoice()?.total | money:invoiceCurrency() }}</span>
-            </div>
-          </div>
-
-          <!-- Payment Info -->
-          @if (profile()?.swift || profile()?.iban) {
-            <div style="border-top:1px solid #e5e7eb; padding-top:24px; margin-bottom:24px;">
-              <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">Transfer the amount to the account below</p>
-              <div style="display:flex; gap:32px;">
-                @if (profile()?.swift) {
-                  <div>
-                    <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">SWIFT/BIC</div>
-                    <div style="font-size:13px; font-weight:700; color:#111827;">{{ profile()?.swift }}</div>
-                  </div>
-                }
-                @if (profile()?.iban) {
-                  <div>
-                    <div style="font-size:10px; color:#9ca3af; letter-spacing:1px; text-transform:uppercase;">IBAN</div>
-                    <div style="font-size:13px; font-weight:700; color:#111827;">{{ profile()?.iban }}</div>
-                  </div>
-                }
-              </div>
-            </div>
-          }
-
-          <!-- Notes -->
-          @if (invoice()?.notes) {
-            <div style="margin-bottom:40px;">
-              <div style="font-size:11px; font-weight:700; color:#9ca3af; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px;">Notes</div>
-              <p style="font-size:12px; color:#6b7280; line-height:1.6;">{{ invoice()?.notes }}</p>
-            </div>
-          }
-
-          <!-- Signature -->
-          @if (profile()?.signature_path) {
-            <div>
-              <img [src]="getSignatureUrl()" alt="Signature" style="height:60px; width:auto;" />
-            </div>
-          }
-        </div>
-      </div>
+    } @else if (documentHtml()) {
+      <!-- A4 paper. The document is the API's own PDF template rendered in a
+           sandboxed iframe, so the screen and the printed file cannot drift
+           apart the way two hand-kept layouts did. -->
+      <iframe
+        [srcdoc]="documentHtml()"
+        sandbox
+        title="Invoice preview"
+        class="invoice-preview bg-white shadow-2xl w-[794px] h-[1123px] rounded-sm border-0"
+      ></iframe>
+    } @else {
+      <div class="text-slate-400 text-sm py-20">Could not render this invoice.</div>
     }
   </div>
 </div>

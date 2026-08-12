@@ -7,6 +7,7 @@ import {
   updateInvoice,
   deleteInvoice,
   downloadPDF,
+  getInvoiceHTML,
   getDashboardStats,
   duplicateInvoice,
   getMonthlyStats,
@@ -25,6 +26,7 @@ router.get('/next-number', getNextNumber);
 router.get('/', listInvoices);
 router.get('/:id', validateParams(idParamSchema), getInvoice);
 router.get('/:id/pdf', validateParams(idParamSchema), downloadPDF);
+router.get('/:id/html', validateParams(idParamSchema), getInvoiceHTML);
 router.post('/', validateBody(createInvoiceSchema), createInvoice);
 router.post('/:id/duplicate', validateParams(idParamSchema), duplicateInvoice);
 router.put('/:id', validateParams(idParamSchema), validateBody(updateInvoiceSchema), updateInvoice);

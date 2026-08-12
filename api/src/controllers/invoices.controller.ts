@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { query, pool } from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { generateInvoicePDF } from '../services/pdf.service';
+import { generateInvoicePDF, renderInvoiceHTML, type InvoiceData } from '../services/pdf.service';
 import { parsePagination } from '../utils/pagination';
 import { lineAmount, sumLineAmounts } from '../utils/money';
 import { createInvoiceSchema, updateInvoiceSchema } from '../validation/schemas';
@@ -20,12 +20,50 @@ type UpdateInvoiceBody = z.infer<typeof updateInvoiceSchema>;
  * invoice could be attached to someone else's client, and the JOIN would then
  * hand that client's name back in the response.
  */
-async function ownsClient(client: PoolClient, userId: number, clientId: number): Promise<boolean> {
-  const result = await client.query('SELECT 1 FROM clients WHERE id = $1 AND user_id = $2', [
+async function resolveClientName(
+  client: PoolClient,
+  userId: number,
+  clientId: number
+): Promise<string | null> {
+  const result = await client.query('SELECT name FROM clients WHERE id = $1 AND user_id = $2', [
     clientId,
     userId,
   ]);
-  return (result.rowCount ?? 0) > 0;
+  // Returning the name here is what lets the response skip a second round trip
+  // just to re-read the row that was written a moment ago.
+  return result.rows[0]?.name ?? null;
+}
+
+/**
+ * One statement for the whole set. The row-per-item loop cost a round trip per
+ * task description, which on a month's invoice is 20-30 sequential queries.
+ */
+async function replaceItems(
+  client: PoolClient,
+  invoiceId: number | string,
+  items: ReadonlyArray<{ description: string; hours: number; rate: number }>
+): Promise<Record<string, unknown>[]> {
+  await client.query('DELETE FROM invoice_items WHERE invoice_id = $1', [invoiceId]);
+
+  if (items.length === 0) return [];
+
+  const result = await client.query(
+    `INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order)
+     SELECT $1, d, h, r, a, ord - 1
+     FROM unnest($2::text[], $3::numeric[], $4::numeric[], $5::numeric[])
+          WITH ORDINALITY AS t(d, h, r, a, ord)
+     RETURNING *`,
+    [
+      invoiceId,
+      items.map((i) => i.description),
+      items.map((i) => i.hours),
+      items.map((i) => i.rate),
+      items.map((i) => lineAmount(i.hours, i.rate)),
+    ]
+  );
+
+  // RETURNING has no guaranteed order — the invoice prints in item_order.
+  return result.rows.sort((a, b) => Number(a.item_order) - Number(b.item_order));
 }
 
 /**
@@ -43,7 +81,13 @@ const SORT_COLUMNS: Record<string, string> = {
 };
 
 /** Overdue is derived, never stored: it changes with the calendar, not an edit. */
-const IS_OVERDUE = `(i.due_date IS NOT NULL AND i.status <> 'paid' AND i.due_date < CURRENT_DATE)`;
+function isOverdueExpr(prefix: string): string {
+  return `(${prefix}due_date IS NOT NULL AND ${prefix}status <> 'paid' AND ${prefix}due_date < CURRENT_DATE)`;
+}
+
+const IS_OVERDUE = isOverdueExpr('i.');
+/** RETURNING has no table alias in scope, so the columns are bare there. */
+const IS_OVERDUE_RETURNING = isOverdueExpr('');
 
 function resolveSort(rawSort: unknown, rawOrder: unknown): string {
   const column = SORT_COLUMNS[String(rawSort ?? '')] ?? 'i.created_at';
@@ -189,42 +233,31 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
   try {
     await client.query('BEGIN');
 
-    if (client_id != null && !(await ownsClient(client, req.userId!, client_id))) {
-      await client.query('ROLLBACK');
-      res.status(400).json({ error: 'Unknown client' });
-      return;
+    let clientName: string | null = null;
+    if (client_id != null) {
+      clientName = await resolveClientName(client, req.userId!, client_id);
+      if (clientName === null) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ error: 'Unknown client' });
+        return;
+      }
     }
 
     const total = sumLineAmounts(items);
 
     const invoiceResult = await client.query(
       `INSERT INTO invoices (user_id, client_id, invoice_number, date, due_date, status, total, subtotal, notes, period_start, period_end)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9, $10) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9, $10)
+       RETURNING *, ${IS_OVERDUE_RETURNING} AS is_overdue`,
       [req.userId, client_id ?? null, invoice_number, date, due_date ?? null, status || 'draft', total, notes, period_start, period_end]
     );
 
     const invoice = invoiceResult.rows[0];
-
-    // Insert items
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      await client.query(
-        `INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [invoice.id, item.description, item.hours, item.rate, lineAmount(item.hours, item.rate), i]
-      );
-    }
+    const insertedItems = await replaceItems(client, invoice.id, items);
 
     await client.query('COMMIT');
 
-    const full = await query(
-      `SELECT i.*, c.name as client_name FROM invoices i
-       LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = $1`,
-      [invoice.id]
-    );
-    const fullItems = await query('SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order', [invoice.id]);
-
-    res.status(201).json({ ...full.rows[0], items: fullItems.rows });
+    res.status(201).json({ ...invoice, client_name: clientName, items: insertedItems });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
 
@@ -240,75 +273,105 @@ export async function createInvoice(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
+/** Columns a PUT may write straight through, in the order they are applied. */
+const UPDATABLE_COLUMNS = [
+  'invoice_number',
+  'date',
+  'due_date',
+  'status',
+  'notes',
+  'period_start',
+  'period_end',
+  'is_template',
+] as const;
+
 export async function updateInvoice(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const { client_id, invoice_number, date, due_date, status, notes, period_start, period_end, items, is_template } =
-    req.body as UpdateInvoiceBody;
+  const body = req.body as UpdateInvoiceBody & Record<string, unknown>;
+  const { invoice_number, status, items } = body;
 
   const client = await pool.connect();
   try {
-    // Check ownership
-    const exists = await client.query('SELECT id FROM invoices WHERE id = $1 AND user_id = $2', [id, req.userId]);
-    if (exists.rows.length === 0) {
+    await client.query('BEGIN');
+
+    // Inside the transaction and row-locked: the ownership check used to run
+    // before BEGIN, so the invoice could change between the check and the write.
+    const existing = await client.query(
+      `SELECT i.id, c.name AS client_name
+         FROM invoices i
+         LEFT JOIN clients c ON c.id = i.client_id
+        WHERE i.id = $1 AND i.user_id = $2
+        FOR UPDATE OF i`,
+      [id, req.userId]
+    );
+
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
       res.status(404).json({ error: 'Invoice not found' });
       return;
     }
 
-    await client.query('BEGIN');
+    let clientName: string | null = existing.rows[0].client_name ?? null;
 
-    if (client_id != null && !(await ownsClient(client, req.userId!, client_id))) {
-      await client.query('ROLLBACK');
-      res.status(400).json({ error: 'Unknown client' });
-      return;
+    // Only the keys actually present in the body are written. The old
+    // COALESCE($n, column) form could not tell "field omitted" from "field set
+    // to null", so a due date, a note or a client could never be cleared.
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    const set = (column: string, value: unknown): void => {
+      params.push(value);
+      sets.push(`${column} = $${params.length}`);
+    };
+
+    for (const column of UPDATABLE_COLUMNS) {
+      if (column in body) set(column, body[column] ?? null);
     }
 
-    const total = items ? sumLineAmounts(items) : undefined;
-
-    // Set sent_at when transitioning to 'sent' for the first time
-    const sentAtClause = status === 'sent'
-      ? `, sent_at = COALESCE(sent_at, NOW())`
-      : '';
-
-    await client.query(
-      `UPDATE invoices SET
-         client_id = COALESCE($1, client_id),
-         invoice_number = COALESCE($2, invoice_number),
-         date = COALESCE($3, date),
-         status = COALESCE($4, status),
-         notes = COALESCE($5, notes),
-         period_start = COALESCE($6, period_start),
-         period_end = COALESCE($7, period_end),
-         total = COALESCE($8, total),
-         subtotal = COALESCE($8, subtotal),
-         is_template = COALESCE($10, is_template),
-         due_date = COALESCE($11, due_date),
-         updated_at = NOW()${sentAtClause}
-       WHERE id = $9`,
-      [client_id, invoice_number, date, status, notes, period_start, period_end, total, id, is_template ?? null, due_date ?? null]
-    );
+    if ('client_id' in body) {
+      const clientId = body.client_id ?? null;
+      if (clientId != null) {
+        clientName = await resolveClientName(client, req.userId!, clientId);
+        if (clientName === null) {
+          await client.query('ROLLBACK');
+          res.status(400).json({ error: 'Unknown client' });
+          return;
+        }
+      } else {
+        clientName = null;
+      }
+      set('client_id', clientId);
+    }
 
     if (items) {
-      await client.query('DELETE FROM invoice_items WHERE invoice_id = $1', [id]);
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        await client.query(
-          `INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [id, item.description, item.hours, item.rate, lineAmount(item.hours, item.rate), i]
-        );
-      }
+      const total = sumLineAmounts(items);
+      set('total', total);
+      set('subtotal', total);
     }
+
+    // The first transition to 'sent' stamps the date; later saves keep it.
+    if (status === 'sent') sets.push('sent_at = COALESCE(sent_at, NOW())');
+    sets.push('updated_at = NOW()');
+
+    params.push(id);
+    const updated = await client.query(
+      `UPDATE invoices SET ${sets.join(', ')}
+        WHERE id = $${params.length}
+       RETURNING *, ${IS_OVERDUE_RETURNING} AS is_overdue`,
+      params
+    );
+
+    const savedItems = items
+      ? await replaceItems(client, id, items)
+      : (
+          await client.query(
+            'SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order',
+            [id]
+          )
+        ).rows;
 
     await client.query('COMMIT');
 
-    const full = await query(
-      `SELECT i.*, c.name as client_name FROM invoices i
-       LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = $1`,
-      [id]
-    );
-    const fullItems = await query('SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order', [id]);
-
-    res.json({ ...full.rows[0], items: fullItems.rows });
+    res.json({ ...updated.rows[0], client_name: clientName, items: savedItems });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
 
@@ -342,37 +405,51 @@ export async function deleteInvoice(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
+/**
+ * The full record the invoice document is rendered from — profile, client and
+ * items in one shape. Shared by the PDF and the on-screen preview so the two
+ * cannot drift apart.
+ */
+async function loadRenderData(
+  invoiceId: string,
+  userId: number | undefined
+): Promise<InvoiceData | null> {
+  const invoiceResult = await query(
+    `SELECT i.*, c.name as client_name, c.address as client_address,
+            c.city as client_city, c.postal_code as client_postal_code,
+            c.vat as client_vat, c.currency as client_currency,
+            u.name as user_name, u.email as user_email,
+            p.vat as user_vat, p.phone as user_phone,
+            p.logo_path, p.signature_path, p.swift, p.iban, p.bank_name,
+            COALESCE(c.currency, p.currency, 'EUR') as currency
+     FROM invoices i
+     LEFT JOIN clients c ON c.id = i.client_id
+     LEFT JOIN users u ON u.id = i.user_id
+     LEFT JOIN profiles p ON p.user_id = i.user_id
+     WHERE i.id = $1 AND i.user_id = $2`,
+    [invoiceId, userId]
+  );
+
+  if (invoiceResult.rows.length === 0) return null;
+
+  const itemsResult = await query(
+    'SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order ASC',
+    [invoiceId]
+  );
+
+  return { ...invoiceResult.rows[0], items: itemsResult.rows } as InvoiceData;
+}
+
 export async function downloadPDF(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params;
   try {
-    // Get invoice with all data
-    const invoiceResult = await query(
-      `SELECT i.*, c.name as client_name, c.address as client_address,
-              c.city as client_city, c.postal_code as client_postal_code,
-              c.vat as client_vat, c.currency as client_currency,
-              u.name as user_name, u.email as user_email,
-              p.vat as user_vat, p.phone as user_phone,
-              p.logo_path, p.signature_path, p.swift, p.iban, p.bank_name,
-              COALESCE(c.currency, p.currency, 'EUR') as currency
-       FROM invoices i
-       LEFT JOIN clients c ON c.id = i.client_id
-       LEFT JOIN users u ON u.id = i.user_id
-       LEFT JOIN profiles p ON p.user_id = i.user_id
-       WHERE i.id = $1 AND i.user_id = $2`,
-      [id, req.userId]
-    );
+    const invoiceData = await loadRenderData(id, req.userId);
 
-    if (invoiceResult.rows.length === 0) {
+    if (!invoiceData) {
       res.status(404).json({ error: 'Invoice not found' });
       return;
     }
 
-    const itemsResult = await query(
-      'SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order ASC',
-      [id]
-    );
-
-    const invoiceData = { ...invoiceResult.rows[0], items: itemsResult.rows };
     const pdfBuffer = await generateInvoicePDF(invoiceData);
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -381,6 +458,28 @@ export async function downloadPDF(req: AuthRequest, res: Response): Promise<void
   } catch (err) {
     logger.error('Download PDF error', err);
     res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+}
+
+/**
+ * The exact HTML the PDF is printed from, for the preview screen to show in a
+ * sandboxed iframe. Returned as JSON, not as a document: it must never be a
+ * live same-origin page.
+ */
+export async function getInvoiceHTML(req: AuthRequest, res: Response): Promise<void> {
+  const { id } = req.params;
+  try {
+    const invoiceData = await loadRenderData(id, req.userId);
+
+    if (!invoiceData) {
+      res.status(404).json({ error: 'Invoice not found' });
+      return;
+    }
+
+    res.json({ html: renderInvoiceHTML(invoiceData) });
+  } catch (err) {
+    logger.error('Invoice HTML error', err);
+    res.status(500).json({ error: 'Failed to render invoice' });
   }
 }
 
@@ -431,18 +530,22 @@ export async function duplicateInvoice(req: AuthRequest, res: Response): Promise
   const { id } = req.params;
   const client = await pool.connect();
   try {
-    const src = await client.query(
-      'SELECT * FROM invoices WHERE id = $1 AND user_id = $2',
-      [id, req.userId]
-    );
-    if (src.rows.length === 0) { res.status(404).json({ error: 'Invoice not found' }); return; }
-    const inv = src.rows[0];
-
     await client.query('BEGIN');
 
     // Take the number inside the transaction and lock this user's invoices so two
     // concurrent duplicates cannot pick the same next number.
     await client.query('SELECT pg_advisory_xact_lock($1)', [req.userId]);
+
+    const src = await client.query(
+      'SELECT * FROM invoices WHERE id = $1 AND user_id = $2',
+      [id, req.userId]
+    );
+    if (src.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Invoice not found' });
+      return;
+    }
+    const inv = src.rows[0];
 
     const nextNum = await client.query(
       `SELECT LPAD((COALESCE(MAX(invoice_number::bigint), 0) + 1)::text, 4, '0') as num
@@ -456,21 +559,19 @@ export async function duplicateInvoice(req: AuthRequest, res: Response): Promise
        VALUES ($1, $2, $3, NOW(), 'draft', $4, $5, $6, $7, $8) RETURNING *`,
       [req.userId, inv.client_id, newNumber, inv.total, inv.subtotal, inv.notes, inv.period_start, inv.period_end]
     );
-    const items = await client.query('SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order', [id]);
-    for (let i = 0; i < items.rows.length; i++) {
-      const it = items.rows[i];
-      await client.query(
-        'INSERT INTO invoice_items (invoice_id, description, hours, rate, amount, item_order) VALUES ($1,$2,$3,$4,$5,$6)',
-        [newInv.rows[0].id, it.description, it.hours, it.rate, it.amount, i]
-      );
-    }
+    const items = await client.query(
+      'SELECT description, hours, rate FROM invoice_items WHERE invoice_id = $1 ORDER BY item_order',
+      [id]
+    );
+    await replaceItems(client, newInv.rows[0].id, items.rows);
+
+    const clientName = inv.client_id
+      ? await resolveClientName(client, req.userId!, inv.client_id)
+      : null;
+
     await client.query('COMMIT');
 
-    const full = await query(
-      `SELECT i.*, c.name as client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = $1`,
-      [newInv.rows[0].id]
-    );
-    res.status(201).json(full.rows[0]);
+    res.status(201).json({ ...newInv.rows[0], client_name: clientName });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
     logger.error('Duplicate invoice error', err);

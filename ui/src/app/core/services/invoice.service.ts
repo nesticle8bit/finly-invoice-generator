@@ -73,4 +73,13 @@ export class InvoiceService {
   downloadPDF(id: number): Observable<Blob> {
     return this.http.get(`${this.base}/${id}/pdf`, { responseType: 'blob' });
   }
+
+  /**
+   * The same HTML the API prints the PDF from. The preview renders it instead
+   * of re-implementing the invoice layout in an Angular template, which is how
+   * the two used to end up showing different figures.
+   */
+  getHtml(id: number): Observable<{ html: string }> {
+    return this.http.get<{ html: string }>(`${this.base}/${id}/html`);
+  }
 }

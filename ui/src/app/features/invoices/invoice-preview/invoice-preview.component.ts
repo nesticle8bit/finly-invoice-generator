@@ -1,32 +1,31 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from "@angular/router";
-import { DatePipe, CurrencyPipe } from "@angular/common";
-import { MoneyPipe } from "../../../shared/money/money.pipe";
+import { DatePipe } from "@angular/common";
+import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { FormsModule } from "@angular/forms";
+import { forkJoin } from "rxjs";
 import { InvoiceService } from "../../../core/services/invoice.service";
-import { ProfileService } from "../../../core/services/profile.service";
 import { ToastService } from "../../../core/services/toast.service";
 import { ShareService, ShareInfo } from "../../../core/services/share.service";
-import { Invoice, InvoiceStatus, Profile } from "../../../core/models";
-import { environment } from "../../../../environments/environment";
+import { Invoice, InvoiceStatus } from "../../../core/models";
 
 @Component({
   selector: "app-invoice-preview",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, DatePipe, FormsModule, MoneyPipe],
-  providers: [CurrencyPipe],
+  imports: [RouterLink, DatePipe, FormsModule],
   templateUrl: './invoice-preview.component.html',
 })
 export class InvoicePreviewComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private invoiceService = inject(InvoiceService);
-  private profileService = inject(ProfileService);
   private toast = inject(ToastService);
   private shareService = inject(ShareService);
+  private sanitizer = inject(DomSanitizer);
 
   invoice = signal<Invoice | null>(null);
-  profile = signal<Profile | null>(null);
+  /** The API's own PDF template — see `getHtml` on the service. */
+  documentHtml = signal<SafeHtml | null>(null);
   loading = signal(true);
   downloading = signal(false);
   invoiceId!: number;
@@ -42,52 +41,36 @@ export class InvoicePreviewComponent implements OnInit {
 
   ngOnInit(): void {
     this.invoiceId = parseInt(this.route.snapshot.paramMap.get("id")!);
-    this.loadInvoice();
-    this.loadProfile();
+    this.load();
   }
 
-  loadInvoice(): void {
-    this.invoiceService.getById(this.invoiceId).subscribe({
-      next: (inv) => {
-        this.invoice.set(inv);
-        this.clientCurrency.set(inv.client_currency ?? null);
+  /**
+   * The toolbar needs the record, the paper needs the rendered document. Both
+   * are fetched together so the page never shows a half-loaded state.
+   */
+  load(): void {
+    this.loading.set(true);
+    forkJoin({
+      invoice: this.invoiceService.getById(this.invoiceId),
+      document: this.invoiceService.getHtml(this.invoiceId),
+    }).subscribe({
+      next: ({ invoice, document }) => {
+        this.invoice.set(invoice);
+        this.setDocument(document.html);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
   }
 
-  loadProfile(): void {
-    this.profileService.get().subscribe({ next: (p) => this.profile.set(p) });
-  }
-
-  getLogoUrl(): string {
-    const p = this.profile();
-    if (!p?.logo_path) return "";
-    return `${environment.uploadsUrl}/${p.logo_path}`;
-  }
-
-  getSignatureUrl(): string {
-    const p = this.profile();
-    if (!p?.signature_path) return "";
-    return `${environment.uploadsUrl}/${p.signature_path}`;
-  }
-
-  /** The client's currency wins over the profile default for this invoice. */
-  invoiceCurrency(): string | null {
-    return this.clientCurrency() ?? this.profile()?.currency ?? null;
-  }
-
-  private clientCurrency = signal<string | null>(null);
-
-  getUserInitials(): string {
-    const name = this.profile()?.name || "JP";
-    return name
-      .split(" ")
-      .map((n: string) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  /**
+   * The iframe is `sandbox`ed with no allow-* flags, so nothing in this markup
+   * can execute or reach back into the app — and the API escapes every field it
+   * interpolates. Angular still strips `<style>` and the like from srcdoc
+   * bindings, which would leave the invoice unstyled, hence the bypass.
+   */
+  private setDocument(html: string): void {
+    this.documentHtml.set(this.sanitizer.bypassSecurityTrustHtml(html));
   }
 
   downloadPDF(): void {

@@ -34,6 +34,26 @@ interface InvoiceData {
   items: InvoiceItem[];
 }
 
+/**
+ * Every value below is user-supplied and lands inside an HTML template. A task
+ * description holding `<` or `&` used to break the layout outright, and a
+ * `<script>` in one would have run inside the rendering page.
+ */
+function esc(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Notes are a textarea: newlines are meaningful, so they survive escaping. */
+function escMultiline(value: unknown): string {
+  return esc(value).replace(/\r?\n/g, '<br>');
+}
+
 function toBase64Image(filePath: string): string {
   if (!filePath) return '';
   try {
@@ -55,29 +75,45 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: '2-digit' });
 }
 
+/**
+ * Mirrors the UI's `money` pipe (Angular `CurrencyPipe`, en-US, 'symbol',
+ * '1.0-2'). The PDF used to format de-DE with a trailing symbol, so the same
+ * invoice read `1.234,56 €` on paper and `€1,234.56` on screen.
+ */
 function formatCurrency(amount: number, currency: string = 'EUR'): string {
-  const sym = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'COP' ? 'COP' : currency;
-  return `${amount.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${sym}`;
+  const code = (currency || 'EUR').toUpperCase();
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'symbol',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    // Unknown/invalid ISO code — Intl throws rather than falling back.
+    return `${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${code}`;
+  }
 }
 
 function buildInvoiceHTML(data: InvoiceData): string {
   const logoBase64 = toBase64Image(data.logo_path);
   const signatureBase64 = toBase64Image(data.signature_path);
-  const sym = data.currency === 'EUR' ? '€' : data.currency === 'USD' ? '$' : data.currency || '€';
-
   const itemsRows = data.items.map((item, i) => `
     <tr style="background: ${i % 2 === 0 ? '#f9fafb' : '#ffffff'};">
-      <td style="padding: 10px 16px; font-size: 12px; color: #374151; border-bottom: 1px solid #f3f4f6;">${item.description}</td>
-      <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: center; border-bottom: 1px solid #f3f4f6;">${item.hours}</td>
-      <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: center; white-space: nowrap; border-bottom: 1px solid #f3f4f6;">${item.rate} ${sym}</td>
+      <td style="padding: 10px 16px; font-size: 12px; color: #374151; border-bottom: 1px solid #f3f4f6;">${escMultiline(item.description)}</td>
+      <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: center; border-bottom: 1px solid #f3f4f6;">${esc(item.hours)}</td>
+      <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: center; white-space: nowrap; border-bottom: 1px solid #f3f4f6;">${formatCurrency(item.rate, data.currency)}</td>
       <td style="padding: 10px 16px; font-size: 12px; color: #374151; text-align: right; border-bottom: 1px solid #f3f4f6;">${formatCurrency(item.amount, data.currency)}</td>
     </tr>
   `).join('');
 
+  // Escaped per part, then joined with the <br> markup — escaping the joined
+  // string would print the separator literally.
   const clientAddress = [
-    data.client_address,
-    [data.client_postal_code, data.client_city].filter(Boolean).join(' '),
-    data.client_vat ? `VAT: ${data.client_vat}` : ''
+    esc(data.client_address),
+    esc([data.client_postal_code, data.client_city].filter(Boolean).join(' ')),
+    data.client_vat ? `VAT: ${esc(data.client_vat)}` : ''
   ].filter(Boolean).join('<br>');
 
   return `<!DOCTYPE html>
@@ -131,14 +167,14 @@ function buildInvoiceHTML(data: InvoiceData): string {
       <div class="logo-wrap">
         ${logoBase64
           ? `<img src="${logoBase64}" alt="Logo">`
-          : `<div class="logo-initials">${(data.user_name || 'JP').split(' ').map(n => n[0]).join('')}</div>`
+          : `<div class="logo-initials">${esc((data.user_name || 'JP').split(' ').map(n => n[0]).join(''))}</div>`
         }
       </div>
       <div class="user-info">
-        <strong>${data.user_name || ''}</strong><br>
-        ${data.user_vat ? `VAT: ${data.user_vat}<br>` : ''}
-        ${data.user_email || ''}<br>
-        ${data.user_phone || ''}
+        <strong>${esc(data.user_name)}</strong><br>
+        ${data.user_vat ? `VAT: ${esc(data.user_vat)}<br>` : ''}
+        ${esc(data.user_email)}<br>
+        ${esc(data.user_phone)}
       </div>
     </div>
 
@@ -147,7 +183,7 @@ function buildInvoiceHTML(data: InvoiceData): string {
       <div class="bill-to">
         <h3>Bill To</h3>
         <p>
-          <strong>${data.client_name || ''}</strong><br>
+          <strong>${esc(data.client_name)}</strong><br>
           ${clientAddress}
         </p>
       </div>
@@ -155,7 +191,7 @@ function buildInvoiceHTML(data: InvoiceData): string {
         <h2>Invoice</h2>
         <div class="field">
           <div class="label">N°</div>
-          <div class="value">${data.invoice_number}</div>
+          <div class="value">${esc(data.invoice_number)}</div>
         </div>
         <div class="field">
           <div class="label">Date</div>
@@ -197,8 +233,8 @@ function buildInvoiceHTML(data: InvoiceData): string {
     <div class="payment-section">
       <p>Transfer the amount to the account below</p>
       <div class="bank-row">
-        ${data.swift ? `<div class="bank-field"><div class="bk-label">SWIFT/BIC</div><div class="bk-value">${data.swift}</div></div>` : ''}
-        ${data.iban ? `<div class="bank-field"><div class="bk-label">IBAN</div><div class="bk-value">${data.iban}</div></div>` : ''}
+        ${data.swift ? `<div class="bank-field"><div class="bk-label">SWIFT/BIC</div><div class="bk-value">${esc(data.swift)}</div></div>` : ''}
+        ${data.iban ? `<div class="bank-field"><div class="bk-label">IBAN</div><div class="bk-value">${esc(data.iban)}</div></div>` : ''}
       </div>
     </div>` : ''}
 
@@ -206,7 +242,7 @@ function buildInvoiceHTML(data: InvoiceData): string {
     ${data.notes ? `
     <div class="notes-section">
       <h4>Notes</h4>
-      <p>${data.notes}</p>
+      <p>${escMultiline(data.notes)}</p>
     </div>` : ''}
 
     <!-- Signature -->
@@ -256,23 +292,62 @@ export async function closeBrowser(): Promise<void> {
   await browser?.close().catch(() => undefined);
 }
 
+/**
+ * Each open page costs Chromium ~50-80MB, and the container is capped at 1GB.
+ * Unbounded concurrent renders used to get the whole process OOM-killed, which
+ * takes the API down with it — so requests queue instead.
+ */
+const MAX_CONCURRENT_RENDERS = Number(process.env.PDF_CONCURRENCY || 3);
+let activeRenders = 0;
+const renderQueue: (() => void)[] = [];
+
+async function acquireRenderSlot(): Promise<void> {
+  if (activeRenders < MAX_CONCURRENT_RENDERS) {
+    activeRenders++;
+    return;
+  }
+  await new Promise<void>((resolve) => renderQueue.push(resolve));
+  activeRenders++;
+}
+
+function releaseRenderSlot(): void {
+  activeRenders--;
+  renderQueue.shift()?.();
+}
+
 export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
   const html = buildInvoiceHTML(data);
 
-  const browser = await getBrowser();
-  const page = await browser.newPage();
-
+  await acquireRenderSlot();
   try {
-    await page.setContent(html, { waitUntil: 'load' });
+    const browser = await getBrowser();
+    const page = await browser.newPage();
 
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
-    });
+    try {
+      await page.setContent(html, { waitUntil: 'load' });
 
-    return Buffer.from(pdf);
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      });
+
+      return Buffer.from(pdf);
+    } finally {
+      await page.close().catch(() => undefined);
+    }
   } finally {
-    await page.close().catch(() => undefined);
+    releaseRenderSlot();
   }
 }
+
+/**
+ * The on-screen preview renders this same HTML in an iframe. Two hand-kept
+ * copies of the invoice layout — one here, one in the Angular template — drifted
+ * every time either side was touched.
+ */
+export function renderInvoiceHTML(data: InvoiceData): string {
+  return buildInvoiceHTML(data);
+}
+
+export type { InvoiceData };
