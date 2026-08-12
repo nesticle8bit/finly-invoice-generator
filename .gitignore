@@ -10,12 +10,15 @@ ui/dist/
 #  Angular cache 
 ui/.angular/
 
-#  Environment / secrets 
+#  Environment / secrets
 .env
 api/.env
+# Real credentials for a throwaway database — see api/.env.test.example.
+api/.env.test
 
-#  Uploads (user files — logos, signatures) 
+#  Uploads (user files — logos, signatures)
 api/uploads/
+api/uploads-test/
 
 #  Logs 
 *.log
